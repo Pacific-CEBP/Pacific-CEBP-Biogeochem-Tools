@@ -183,8 +183,11 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     # Average duplicates
     ds_salts_mean = ds_salts.groupby('cast_number').mean()
 
+    #Add quality flags 
+    ds_salt_flag = ds_salts['salinity_flag_ios']
+
     # Merge into bottle file
-    ds_btl = xr.merge([ds_btl, ds_salts_mean['salinity']])
+    ds_btl = xr.merge([ds_btl, ds_salts_mean['salinity'],ds_salt_flag])
 
     # Attach metadata
     ds_btl['salinity'].attrs = {'long_name': 'practical salinity',
