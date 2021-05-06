@@ -197,6 +197,14 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
                                 'data_max': np.nanmax(ds_btl['salinity'].values),
                                 'WHPO_Variable_Name': 'SALNTY'}
 
+    ds_btl['salinity_flag_ios'].attrs = {'long_name': 'practical salinity quality',
+                                'standard_name': 'sea_water_practical_salinity status_flag',
+                                'units': '',
+                                'valid_range': (0,9),
+                                'flag_values': '0,1,2,3,4,5,6,9',
+                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Not collected',
+                                'WHPO_Variable_Name': 'NA'}    
+                                
     # Drop bottle number columns
     ds_btl = ds_btl.drop(['salt_btl', 'salt_dup'])
 
