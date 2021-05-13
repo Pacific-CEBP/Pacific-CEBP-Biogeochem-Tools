@@ -184,7 +184,15 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     ds_salts_mean = ds_salts.groupby('cast_number').mean()
 
     #Add quality flags 
-    ds_salt_flag = ds_salts['salinity_flag_ios']
+    #find "worst" flag for duplicate pair 
+    df_salt_flag = df_salts.groupby(['cast'], sort=False)['salinity_flag_ios'].max()
+    #Arrange dataframe for conversion to xarray
+    df_salt_flag = df_salt_flag.to_frame().reset_index()
+    df_salt_flag.columns = ['cast_number', 'salinity_flag_ios']
+    df_salt_flag = df_salt_flag.drop(columns=['cast_number'])
+
+    #convert to xarary
+    ds_salt_flag = xr.Dataset.from_dataframe(df_salt_flag)
 
     # Merge into bottle file
     ds_btl = xr.merge([ds_btl, ds_salts_mean['salinity'],ds_salt_flag])
