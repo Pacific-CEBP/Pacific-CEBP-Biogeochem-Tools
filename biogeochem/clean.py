@@ -7,6 +7,31 @@ import os
 import xarray as xr
 
 
+def convert_ios_quality_flags(ios_flags, type='bottle'):
+    """Convert quality flags assigned by water properties group at IOS to
+    equivalent quality flags using the WOCE convention."""
+    
+    ios_to_woce_btl = { 
+                        1:1, # sample drawn from bottle but not analyzed
+                        2:2, # acceptable measurement
+                       '':2, # acceptable measurement
+                        3:3, # questionable measurement
+                        4:4, # bad measurement
+                        5:5, # not reported
+                        6:6, # mean of replicate measurements
+                        7:7, # manual chromatographic 
+                        8:8, # irregular digital chromatog. peak integration
+                        9:9, # sample not drawn for this measurement
+                       36:3  # questionable measurement
+                      }
+    
+    woce_flags = ios_flags
+    for i, flag in enumerate(ios_flags):
+        woce_flags[i] = ios_to_woce[flag]
+    
+    return woce_flags
+
+
 def clean_cast_files(cast_flist, root_dir=None, cast_dir=None):
     """Remove intermediate data processing results from cast files.
     If user supplies root_dir, the assumption is that all directories
@@ -47,7 +72,7 @@ def clean_cast_files(cast_flist, root_dir=None, cast_dir=None):
 
     print('done.')
 
-
+    
 def iso19115(cast_flist, root_dir=None, cast_dir=None):
     """Generate ISO19115 compliant files.  If user supplies root_dir,
     the assumption is that all directories follow the standard pattern.
