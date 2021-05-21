@@ -280,13 +280,119 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
     ds_nuts = xr.Dataset.from_dataframe(df_nuts)
     ds_nuts = ds_nuts.rename({'cast': 'cast_number'})
 
-    # Average duplicates
-    ds_nuts_mean = ds_nuts.groupby('cast_number').mean()
+    #for qualify flags that are blank - replace blank with 2
+    df_nuts['nitrate_flag_ios'] = df_nuts['nitrate_flag_ios'].fillna(2)
+    df_nuts['silicate_flag_ios'] = df_nuts['silicate_flag_ios'].fillna(2)
+    df_nuts['phosphate_flag_ios'] = df_nuts['phosphate_flag_ios'].fillna(2)
 
-    # Merge into bottle file
-    ds_btl = xr.merge([ds_btl, ds_nuts_mean['nitrate'],
-                       ds_nuts_mean['silicate'],
-                       ds_nuts_mean['phosphate']])
+    #assign ranks to quality flag using dictionary
+    flag_rank_dict = {1:8,2:1,3:4,4:5,5:7,7:2, 8:3, 9:9, 6:6}
+
+    #iterate through nitrate flags and assign rank
+    nitrate_flag_rank =[]
+    for num in df_nuts['nitrate_flag_ios']:
+        nitrate_flag_rank.append(flag_rank_dict.get(num))
+    df_nuts['nitrate_flag_rank'] = nitrate_flag_rank
+
+    #iterate through silicate flags and assign rank
+    silicate_flag_rank =[]
+    for num in df_nuts['silicate_flag_ios']:
+        silicate_flag_rank.append(flag_rank_dict.get(num))
+    df_nuts['silicate_flag_rank'] = silicate_flag_rank
+    
+    #iterate through phosphate flags and assign rank
+    phosphate_flag_rank =[]
+    for num in df_nuts['phosphate_flag_ios']:
+        phosphate_flag_rank.append(flag_rank_dict.get(num))
+    df_nuts['phosphate_flag_rank'] = phosphate_flag_rank
+    
+    # Nitrate - groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
+    castavg = []                   
+    xavg = []
+    xavg_f = []
+
+    for cast, group in df_nuts.groupby('cast'):
+        fmin = group['nitrate_flag_rank'].min()
+        idx_fmin = (group['nitrate_flag_rank']==fmin)
+        group_fmin = group['nitrate'][idx_fmin]
+        xavg.append(group['nitrate'][idx_fmin].mean())
+        if len(group['nitrate'][idx_fmin])>1 and fmin==1:
+             xavg_f.append(6)
+        else:
+            xavg_f.append(fmin)
+        castavg.append(cast)
+        nitrate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
+                            'nitrate': pd.Series(xavg),
+                            'nitrate_flag_ios': pd.Series(xavg_f)})
+        
+    nitrate_flags = []
+    for i in nitrate_avg['nitrate_flag_ios']:
+        nitrate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
+
+    nitrate_avg['nitrate_flag_ios']=nitrate_flags
+
+    # silicate - groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
+    castavg = []                   
+    xavg = []
+    xavg_f = []
+
+    for cast, group in df_nuts.groupby('cast'):
+        fmin = group['silicate_flag_rank'].min()
+        idx_fmin = (group['silicate_flag_rank']==fmin)
+        group_fmin = group['silicate'][idx_fmin]
+        xavg.append(group['silicate'][idx_fmin].mean())
+        if len(group['silicate'][idx_fmin])>1 and fmin==1:
+             xavg_f.append(6)
+        else:
+            xavg_f.append(fmin)
+        castavg.append(cast)
+        silicate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
+                            'silicate': pd.Series(xavg),
+                            'silicate_flag_ios': pd.Series(xavg_f)})    
+    silicate_flags = []
+    for i in silicate_avg['silicate_flag_ios']:
+        silicate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
+
+    silicate_avg['silicate_flag_ios']=silicate_flags
+
+    #phosphate - # groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
+    castavg = []                   
+    xavg = []
+    xavg_f = []
+
+    for cast, group in df_nuts.groupby('cast'):
+        fmin = group['phosphate_flag_rank'].min()
+        idx_fmin = (group['phosphate_flag_rank']==fmin)
+        group_fmin = group['phosphate'][idx_fmin]
+        xavg.append(group['phosphate'][idx_fmin].mean())
+        if len(group['phosphate'][idx_fmin])>1 and fmin==1:
+             xavg_f.append(6)
+        else:
+            xavg_f.append(fmin)
+        castavg.append(cast)
+        phosphate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
+                            'phosphate': pd.Series(xavg),
+                            'phosphate_flag_ios': pd.Series(xavg_f)})
+        
+    phosphate_flags = []
+    for i in phosphate_avg['phosphate_flag_ios']:
+        phosphate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
+
+    phosphate_avg['phosphate_flag_ios']=phosphate_flags
+
+    #set index to cast number for dataframes with averages
+    phosphate_avg =phosphate_avg.set_index('cast_number')
+    nitrate_avg =nitrate_avg.set_index('cast_number')
+    silicate_avg =silicate_avg.set_index('cast_number')
+
+    #stitch means and qualitfy flags together for each nutrient type
+    df_nuts_mean = pd.concat([phosphate_avg, nitrate_avg, silicate_avg], axis =1)
+   
+    #convert dataframe to xarray dataset
+    ds_nuts_mean = xr.Dataset.from_dataframe(df_nuts_mean) 
+
+    #merge bottle file and nutrient data   
+    ds_btl = xr.merge([ds_btl, ds_nuts_mean])
 
     # Attach metadata
     ds_btl['nitrate'].attrs = {'long_name': 'dissolved nitrate + nitrite concentration',
