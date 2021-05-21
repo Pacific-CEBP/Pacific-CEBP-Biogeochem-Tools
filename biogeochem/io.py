@@ -180,22 +180,57 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     ds_salts = xr.Dataset.from_dataframe(df_salts)
     ds_salts = ds_salts.rename({'cast': 'cast_number'})
 
-    # Average duplicates
-    ds_salts_mean = ds_salts.groupby('cast_number').mean()
+    # for files with blank quality flags - replace blank with 2 
+    df_salts['salinity_flag_ios'] = df_salts['salinity_flag_ios'].fillna(2)
+    
+    # assign ranks to quality flags using dictionary    
+    flag_rank_dict = {1:8, 2:1, 3:4, 4:5, 5:7, 7:2, 8:3, 9:9, 6:6}
+    
+    # iterate through flags in the salinity file and assign flag ranks to list
+    flag_rank =[]
+    for num in df_salts['salinity_flag_ios']:
+        flag_rank.append(flag_rank_dict.get(num))
+    
+    # append flag ranks to dataframe
+    df_salts['flag_rank'] = flag_rank
+    
+    #groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank    
+    castavg = []                   
+    s_avg = []
+    s_avg_f = []
 
-    #Add quality flags 
-    #find "worst" flag for duplicate pair 
-    df_salt_flag = df_salts.groupby(['cast'], sort=False)['salinity_flag_ios'].max()
-    #Arrange dataframe for conversion to xarray
-    df_salt_flag = df_salt_flag.to_frame().reset_index()
-    df_salt_flag.columns = ['cast_number', 'salinity_flag_ios']
-    df_salt_flag = df_salt_flag.drop(columns=['cast_number'])
+    for cast, group in df_salts.groupby('cast'):
+        fmin = group['flag_rank'].min()
+        idx_fmin = (group['flag_rank']==fmin)
+        group_fmin = group['salinity'][idx_fmin]
+        s_avg.append(group['salinity'][idx_fmin].mean())
+        if len(group['salinity'][idx_fmin])>1 and fmin==1:
+            s_avg_f.append(6)
+        else:
+            s_avg_f.append(fmin)
+        castavg.append(cast)
+   
+    # create dataframe with mean salinities, best of duplicates and quality flags (which are currently rank numbers)   
+    df_salts_mean = pd.DataFrame({'cast_number': pd.Series(castavg),
+                                'salinity': pd.Series(s_avg),
+                                'salinity_flag_ios': pd.Series(s_avg_f)})
+   
+    #translate back from rank numbers to quality flags using reverse dicitionary look up
+    flags = []
+    for i in df_salts_mean['salinity_flag_ios']:
+      flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
+    
+    #replace flag ranks with flag numbers  
+    df_salts_mean['salinity_flag_ios']=flags  
 
-    #convert to xarary
-    ds_salt_flag = xr.Dataset.from_dataframe(df_salt_flag)
+    #set index to cast number for merge with btl file  
+    df_salts_mean = df_salts_mean.set_index('cast_number')
+
+    #convert dataframe to xarray 
+    ds_salts_mean = xr.Dataset.from_dataframe(df_salts_mean)    
 
     # Merge into bottle file
-    ds_btl = xr.merge([ds_btl, ds_salts_mean['salinity'],ds_salt_flag])
+    ds_btl = xr.merge([ds_btl, ds_salts_mean])
 
     # Attach metadata
     ds_btl['salinity'].attrs = {'long_name': 'practical salinity',
@@ -211,15 +246,16 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
                                 'valid_range': (0,9),
                                 'flag_values': '0,1,2,3,4,5,6,9',
                                 'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Not collected',
-                                'WHPO_Variable_Name': 'NA'}    
-                                
+                                'WHPO_Variable_Name': 'NA'}                    
+
     # Drop bottle number columns
     ds_btl = ds_btl.drop(['salt_btl', 'salt_dup'])
 
     # Save results
     ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
-
+    
     print('done.')
+
 
 
 def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
