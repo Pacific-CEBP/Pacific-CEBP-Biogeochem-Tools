@@ -8,6 +8,26 @@ import xarray as xr
 import gsw
 
 
+"""RBR specific calculation tools"""
+
+def rbr_correct_zero_order_hold(ds, channel):
+    """The analog-to-digital (A2D) converter on RBR instruments must
+    recalibrate periodically.  In the time it takes for the calibration
+    to finish, one or more samples are missed.  The onboard firmware
+    fills the missed sample with the same data measured during the
+    previous sample, a simple technique called a zero-order hold.
+
+    The function identifies zero-hold points by looking for where
+    consecutive differences for each channel are equal to zero, and
+    replaces them with NaN."""
+
+    ds_out = ds.copy()
+
+    hold_idx = np.where(np.diff(ds[channel])==0.0)[0] + 1
+    ds_out[channel][hold_idx] = np.NaN
+    return ds_out
+    
+
 """Despiking, filtering, binning type routines"""
 
 def despike(ds, channel, std_limit=3, kernel_size=3):
