@@ -8,7 +8,7 @@ import xarray as xr
 import gsw
 
 
-"""RBR specific calculation tools"""
+"""RBR specific tools"""
 
 def rbr_correct_zero_order_hold(ds, channel):
     """The analog-to-digital (A2D) converter on RBR instruments must

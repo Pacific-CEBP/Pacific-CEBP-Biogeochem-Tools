@@ -9,6 +9,8 @@ import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
 
+from . import ctd
+
 
 #-------------------------------------------------------------------------------
 # Cast extraction and calculation routines
