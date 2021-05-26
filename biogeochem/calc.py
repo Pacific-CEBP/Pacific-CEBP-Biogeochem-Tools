@@ -33,8 +33,12 @@ def extract_casts(ds_raw, df_event_log, root_dir=None, cast_dir=None):
     cast_flist = []
     for cast_info in df_event_log.itertuples():
         if cast_info.cast_f == 2:
-            ds_cast = rbr.extract_cast(ds_raw, [cast_info.tstart,
-                                                cast_info.tend])
+            # extract data
+            ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 
+                                                 cast_info.tend))
+            ds_cast['time'] = ds_cast['timestamp'][-1]  # cast bottom
+            ds_cast['time'].attrs = {'long_name': 'cast date/time (utc)',
+                                     'standard_name': 'time'}
 
             # add geolocation
             ds_cast['lat'] = cast_info.lat
