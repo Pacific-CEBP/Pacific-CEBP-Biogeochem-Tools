@@ -9,9 +9,6 @@ import pandas as pd
 import xarray as xr
 import pyrsktools as rsk
 
-from ocean.io import rbr
-from ocean.calc import ctd
-
 
 def load_event_log(fname):
     """Loads the event log .csv file.  Must contain specific columns
