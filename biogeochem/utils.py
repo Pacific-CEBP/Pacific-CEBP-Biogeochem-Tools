@@ -5,7 +5,7 @@ directory structure."""
 import os
 
 from . import io
-from . import calc as bgc_calc
+from . import calc
 from . import clean as bgc_clean
 from . import plot as bgc_plot
 
@@ -25,10 +25,10 @@ def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
 
     # process ctd data
     ds_raw = io.import_merge_rbr(rsk_flist, expocode, root_dir=root_dir)
-    _, cast_flist = bgc_calc.extract_casts(ds_raw, df_event_log,
+    _, cast_flist = calc.extract_casts(ds_raw, df_event_log,
         root_dir=root_dir)
-    bgc_calc.filter_casts(cast_flist, root_dir=root_dir)
-    bgc_calc.derive_insitu_properties(cast_flist, root_dir=root_dir)
+    calc.filter_casts(cast_flist, root_dir=root_dir)
+    calc.derive_insitu_properties(cast_flist, root_dir=root_dir)
     bgc_plot.plot_casts(cast_flist, root_dir=root_dir)
     bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
     bgc_clean.iso19115(cast_flist, root_dir=root_dir)
@@ -50,7 +50,7 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
 
     # process niskin data
     raw_fname = '{0:s}_raw.nc'.format(expocode)
-    bgc_calc.extract_niskin_salts(btl_fname, raw_fname, niskin_length,
+    calc.extract_niskin_salts(btl_fname, raw_fname, niskin_length,
         root_dir=root_dir)
     if salinity_fname is not None:
         io.merge_bottle_salts(btl_fname, salinity_fname, root_dir=root_dir)
