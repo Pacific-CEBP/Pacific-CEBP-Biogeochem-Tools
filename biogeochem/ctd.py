@@ -8,18 +8,6 @@ import xarray as xr
 import gsw
 
 
-
-"""
-class CTD(xr.Dataset):
-    #Xarray Dataset with built-in adherence to CCHDO/WOCE and CF
-    #data, coordinate, metadata, and naming conventions.
-    def __init__(self, data_vars=None):
-
-        super(CTD, self).__init__(data_vars=data_vars, coords=coords,
-            attrs=attrs, compat=compat)
-"""
-
-
 """Despiking, filtering, binning type routines"""
 
 def despike(ds, channel, std_limit=3, kernel_size=3):
