@@ -4,7 +4,7 @@ directory structure."""
 
 import os
 
-from . import io
+from . import io as bgc_io
 from . import calc as bgc_calc
 from . import clean as bgc_clean
 from . import plot as bgc_plot
@@ -21,10 +21,10 @@ def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
     data treatment."""
 
     # load the event log
-    df_event_log = io.load_event_log(os.path.join(root_dir, eventlog_fname))
+    df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # process ctd data
-    ds_raw = io.import_merge_rbr(rsk_flist, expocode, root_dir=root_dir)
+    ds_raw = bgc_io.import_merge_rbr(rsk_flist, expocode, root_dir=root_dir)
     _, cast_flist = bgc_calc.extract_casts(ds_raw, df_event_log,
         root_dir=root_dir)
     bgc_calc.filter_casts(cast_flist, root_dir=root_dir)
@@ -42,10 +42,10 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
     data treatment."""
 
     # load the event log
-    df_event_log = io.load_event_log(os.path.join(root_dir, eventlog_fname))
+    df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # create bottle file
-    btl_fname = io.create_bottle_file(df_event_log, expocode,
+    btl_fname = bgc_io.create_bottle_file(df_event_log, expocode,
         root_dir=root_dir)
 
     # process niskin data
@@ -53,12 +53,12 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
     bgc_calc.extract_niskin_salts(btl_fname, raw_fname, niskin_length,
         root_dir=root_dir)
     if salinity_fname is not None:
-        io.merge_bottle_salts(btl_fname, salinity_fname, root_dir=root_dir)
+        bgc_io.merge_bottle_salts(btl_fname, salinity_fname, root_dir=root_dir)
         bgc_plot.plot_ctdsal_qc(btl_fname, root_dir=root_dir)
     if nutrients_fname is not None:
-        io.merge_nutrients(btl_fname, nutrients_fname, root_dir=root_dir)
+        bgc_io.merge_nutrients(btl_fname, nutrients_fname, root_dir=root_dir)
     if dic_fname is not None:
-        io.merge_dic(btl_fname, dic_fname, root_dir=root_dir)
+        bgc_io.merge_dic(btl_fname, dic_fname, root_dir=root_dir)
     if alk_fname is not None:
         pass
     if del18o_fname is not None:
@@ -67,7 +67,7 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
         pass
 
     # write to csv
-    io.write_bottle_exchange(btl_fname, root_dir=root_dir)
+    bgc_io.write_bottle_exchange(btl_fname, root_dir=root_dir)
 
 
 def refit_alkalinity_titrations():
