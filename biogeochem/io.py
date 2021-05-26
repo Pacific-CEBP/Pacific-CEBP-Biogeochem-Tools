@@ -141,7 +141,7 @@ def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
 
     print('Importing / merging raw CTD data for {0:s}...'.format(expocode),
           end='', flush=True)
-    ds_raw = rbr.multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
+    ds_raw = multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
                                  for rsk_fname in rsk_flist])
     val, idx = np.unique(ds_raw.timestamp, return_index=True)
     ds_raw = ds_raw.isel(timestamp=idx) # trim the rare duplicate index values
@@ -149,11 +149,11 @@ def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
     print('done.', flush=True)
 
     print('Correcting zero-order holds in raw traces...', end='', flush=True)
-    ds_raw = rbr.correct_zero_order_hold(ds_raw, 'P')
-    ds_raw = rbr.correct_zero_order_hold(ds_raw, 'T')
-    ds_raw = rbr.correct_zero_order_hold(ds_raw, 'C')
-    ds_raw = rbr.correct_zero_order_hold(ds_raw, 'V0')
-    ds_raw = rbr.correct_zero_order_hold(ds_raw, 'V1')
+    ds_raw = correct_zero_order_hold(ds_raw, 'P')
+    ds_raw = correct_zero_order_hold(ds_raw, 'T')
+    ds_raw = correct_zero_order_hold(ds_raw, 'C')
+    ds_raw = correct_zero_order_hold(ds_raw, 'V0')
+    ds_raw = correct_zero_order_hold(ds_raw, 'V1')
     print('done.', flush=True)
 
     print('Saving merged CTD data...', end='', flush=True)
