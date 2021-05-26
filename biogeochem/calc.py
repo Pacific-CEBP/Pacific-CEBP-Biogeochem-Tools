@@ -9,9 +9,6 @@ import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
 
-from ocean.io import rbr
-from ocean.calc import ctd
-
 
 #-------------------------------------------------------------------------------
 # Cast extraction and calculation routines
