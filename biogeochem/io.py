@@ -9,7 +9,7 @@ import pandas as pd
 import xarray as xr
 import pyrsktools as rsk
 
-from . import ctd
+from . import ctd as bgc_ctd
 
 
 def load_event_log(fname):
@@ -151,11 +151,11 @@ def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
     print('done.', flush=True)
 
     print('Correcting zero-order holds in raw traces...', end='', flush=True)
-    ds_raw = ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
-    ds_raw = ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
-    ds_raw = ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
-    ds_raw = ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
-    ds_raw = ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
+    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
+    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
+    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
+    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
+    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
     print('done.', flush=True)
 
     print('Saving merged CTD data...', end='', flush=True)
