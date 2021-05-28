@@ -424,10 +424,10 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
 
 def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
     dic_dir=None):
-    """Merge results from bottle salinity analyses.  If user supplies
+    """Merge results from bottle dic and ta analyses.  If user supplies
     root_dir, the assumption is that all directories follow the
     standard pattern.  Otherwise, directories are needed for bottle
-    and salinity files."""
+    and dic/ta files."""
 
     if root_dir is not None:
         btl_dir = os.path.join(root_dir, 'btl')
@@ -438,19 +438,25 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
     # Load bottle file
     ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
 
-    # Load salinity file
+    # Load dic file
     df_dic = pd.read_csv(os.path.join(dic_dir, dic_fname),
         comment='#')
     ds_dic = xr.Dataset.from_dataframe(df_dic)
     ds_dic = ds_dic.rename({'cast': 'cast_number'})
 
-    # Average duplicates
-    ds_dic_mean = ds_dic.groupby('cast_number').mean()
+    # Average duplicates and assign qualify flags
+    dic_avg = quality_flags(df_dic, 'dic', 'dic_flag_ios')
+    ta_avg = quality_flags(df_dic, 'ta','ta_flag_ios')
+    
+    #stitch means and qualitfy flags together for dic and ta
+    df_dic_mean = pd.concat([dic_avg, ta_avg], axis =1)
+
+    #convert dataframe to xarray dataset
+    ds_dic_mean = xr.Dataset.from_dataframe(df_dic_mean) 
 
     # Merge into bottle file
-    ds_btl = xr.merge([ds_btl, ds_dic_mean['dic']])
-    ds_btl = xr.merge([ds_btl, ds_dic_mean['alkalinity']])
-
+    ds_btl = xr.merge([ds_btl, ds_dic_mean])
+    
     # Attach metadata
     ds_btl['dic'].attrs = {'long_name': 'dissolved inorganic carbon',
                            'standard_name': 'mole_concentration_of_dissolved_inorganic_carbon_in_sea_water',
