@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: biogeochem
+Version: 0.1.0
+Summary: Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data
+Home-page: UNKNOWN
+Author: UNKNOWN
+Author-email: UNKNOWN
+License: MIT
+Description: # process-biogeochem
+         Code (mostly Python) to process CTD and Niskin bottle data collected during CEPB biogeochem cruises.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Scientific/Engineering :: Oceanography
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Physics
