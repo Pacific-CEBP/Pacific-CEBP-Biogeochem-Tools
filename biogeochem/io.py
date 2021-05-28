@@ -230,6 +230,76 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
 
     return btl_fname
 
+def quality_flags(df, variable, flag_column_name):
+    
+    """
+    (Pandas DataFrame, string, string)
+    Takes dataframe,varible column name (as string) and flag cloumn
+    name (as string) as written in df e.g. (df_salts, 'salinity', 'salinity_flag_ios')    
+    Takes mean of good (flag 2) duplicates and asssigns a flag of 6. 
+    Otherwise takes sample with the best quality flag. 
+    If there is just a single sample with no dupliate pair, that value is 
+    returned as is, with its original quality flag
+    Works for cruises where no more than one set of duplicates are taken
+    from one cast, otherwise an error is generated.
+    """
+
+    #identify quality flag column in the dataframe from the string provided and set blank values to 2
+    flag_column= df[flag_column_name]
+    flag_column =flag_column.fillna(2)
+    #assign ranks to quality flags
+    flag_rank_dict = {1:8,2:1,3:4,4:5,5:7,7:2, 8:3, 9:9, 6:6}
+    #set up empty lists for code iteration below
+    flag_rank =[]
+    castavg = []                   
+    xavg = []
+    xavg_f = []
+    flags = []
+      
+    #assign rank to each quality flag in dataframe
+    for num in flag_column:
+        flag_rank.append(flag_rank_dict.get(num))
+    #append flag ranks as a new column to dataframe
+    df['flag_rank'] = flag_rank
+    #groupby cast, and iterate through each cast
+    for cast, group in df.groupby('cast'):
+        #to find smallest and largest flag rank in a cast group
+        fmin = group['flag_rank'].min()
+        fmax = group['flag_rank'].max()
+        idx_fmin = (group['flag_rank']==fmin)
+        xavg.append(group[variable][idx_fmin].mean())
+        
+        #conditionals for flag ranks
+        #if two flags in a group and both are 2, append a flag of 6 
+        if len(group[variable])==2 and fmin==1 and fmax ==1:
+            xavg_f.append(6)
+        #if there are more than 2 values in one cast raise an error    
+        elif len(group[variable])>2:
+            print('error: more than two duplicates in one cast')
+        #if there are two values but one is already a duplicate (flag 6) raise an error    
+        elif len(group[variable])==2 and fmax ==6:
+            print('error: more than two duplicates in one cast')
+        #for all other combinations of flags append the lowest     
+        else:
+            xavg_f.append(fmin)
+        #assign cast numbers to list    
+        castavg.append(cast)
+    
+    # create a dataframe with the cast number, means and flags
+    df_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
+                            variable: pd.Series(xavg),
+                            flag_column_name: pd.Series(xavg_f)})
+    
+    #translate flag ranks back to quality flag values using reverse dictionary look up
+    for i in df_avg[flag_column_name]:
+        flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
+  
+    #append the quality flags to the dataframe and reset index to cast_number 
+    df_avg[flag_column_name]=flags
+    df_avg=df_avg.set_index('cast_number')
+   
+    #return the dataframe
+    return df_avg
 
 def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     salinity_dir=None):
@@ -253,53 +323,10 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     ds_salts = xr.Dataset.from_dataframe(df_salts)
     ds_salts = ds_salts.rename({'cast': 'cast_number'})
 
-    # for files with blank quality flags - replace blank with 2 
-    df_salts['salinity_flag_ios'] = df_salts['salinity_flag_ios'].fillna(2)
-    
-    # assign ranks to quality flags using dictionary    
-    flag_rank_dict = {1:8, 2:1, 3:4, 4:5, 5:7, 7:2, 8:3, 9:9, 6:6}
-    
-    # iterate through flags in the salinity file and assign flag ranks to list
-    flag_rank =[]
-    for num in df_salts['salinity_flag_ios']:
-        flag_rank.append(flag_rank_dict.get(num))
-    
-    # append flag ranks to dataframe
-    df_salts['flag_rank'] = flag_rank
-    
-    #groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank    
-    castavg = []                   
-    s_avg = []
-    s_avg_f = []
+    # Average duplicates and assign quality flags
+    df_salts_mean = quality_flags(df_salts, 'salinity','salinity_flag_ios')
 
-    for cast, group in df_salts.groupby('cast'):
-        fmin = group['flag_rank'].min()
-        idx_fmin = (group['flag_rank']==fmin)
-        group_fmin = group['salinity'][idx_fmin]
-        s_avg.append(group['salinity'][idx_fmin].mean())
-        if len(group['salinity'][idx_fmin])>1 and fmin==1:
-            s_avg_f.append(6)
-        else:
-            s_avg_f.append(fmin)
-        castavg.append(cast)
-   
-    # create dataframe with mean salinities, best of duplicates and quality flags (which are currently rank numbers)   
-    df_salts_mean = pd.DataFrame({'cast_number': pd.Series(castavg),
-                                'salinity': pd.Series(s_avg),
-                                'salinity_flag_ios': pd.Series(s_avg_f)})
-   
-    #translate back from rank numbers to quality flags using reverse dicitionary look up
-    flags = []
-    for i in df_salts_mean['salinity_flag_ios']:
-      flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
-    
-    #replace flag ranks with flag numbers  
-    df_salts_mean['salinity_flag_ios']=flags  
-
-    #set index to cast number for merge with btl file  
-    df_salts_mean = df_salts_mean.set_index('cast_number')
-
-    #convert dataframe to xarray 
+    # Convert dataframe to xarray 
     ds_salts_mean = xr.Dataset.from_dataframe(df_salts_mean)    
 
     # Merge into bottle file
@@ -329,8 +356,6 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     
     print('done.')
 
-
-
 def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
     nutrients_dir=None):
     """Merge results from nutrient analyses.  If user supplies
@@ -353,113 +378,13 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
     ds_nuts = xr.Dataset.from_dataframe(df_nuts)
     ds_nuts = ds_nuts.rename({'cast': 'cast_number'})
 
-    #for qualify flags that are blank - replace blank with 2
-    df_nuts['nitrate_flag_ios'] = df_nuts['nitrate_flag_ios'].fillna(2)
-    df_nuts['silicate_flag_ios'] = df_nuts['silicate_flag_ios'].fillna(2)
-    df_nuts['phosphate_flag_ios'] = df_nuts['phosphate_flag_ios'].fillna(2)
-
-    #assign ranks to quality flag using dictionary
-    flag_rank_dict = {1:8,2:1,3:4,4:5,5:7,7:2, 8:3, 9:9, 6:6}
-
-    #iterate through nitrate flags and assign rank
-    nitrate_flag_rank =[]
-    for num in df_nuts['nitrate_flag_ios']:
-        nitrate_flag_rank.append(flag_rank_dict.get(num))
-    df_nuts['nitrate_flag_rank'] = nitrate_flag_rank
-
-    #iterate through silicate flags and assign rank
-    silicate_flag_rank =[]
-    for num in df_nuts['silicate_flag_ios']:
-        silicate_flag_rank.append(flag_rank_dict.get(num))
-    df_nuts['silicate_flag_rank'] = silicate_flag_rank
-    
-    #iterate through phosphate flags and assign rank
-    phosphate_flag_rank =[]
-    for num in df_nuts['phosphate_flag_ios']:
-        phosphate_flag_rank.append(flag_rank_dict.get(num))
-    df_nuts['phosphate_flag_rank'] = phosphate_flag_rank
-    
-    # Nitrate - groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
-    castavg = []                   
-    xavg = []
-    xavg_f = []
-
-    for cast, group in df_nuts.groupby('cast'):
-        fmin = group['nitrate_flag_rank'].min()
-        idx_fmin = (group['nitrate_flag_rank']==fmin)
-        group_fmin = group['nitrate'][idx_fmin]
-        xavg.append(group['nitrate'][idx_fmin].mean())
-        if len(group['nitrate'][idx_fmin])>1 and fmin==1:
-             xavg_f.append(6)
-        else:
-            xavg_f.append(fmin)
-        castavg.append(cast)
-        nitrate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
-                            'nitrate': pd.Series(xavg),
-                            'nitrate_flag_ios': pd.Series(xavg_f)})
-        
-    nitrate_flags = []
-    for i in nitrate_avg['nitrate_flag_ios']:
-        nitrate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
-
-    nitrate_avg['nitrate_flag_ios']=nitrate_flags
-
-    # silicate - groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
-    castavg = []                   
-    xavg = []
-    xavg_f = []
-
-    for cast, group in df_nuts.groupby('cast'):
-        fmin = group['silicate_flag_rank'].min()
-        idx_fmin = (group['silicate_flag_rank']==fmin)
-        group_fmin = group['silicate'][idx_fmin]
-        xavg.append(group['silicate'][idx_fmin].mean())
-        if len(group['silicate'][idx_fmin])>1 and fmin==1:
-             xavg_f.append(6)
-        else:
-            xavg_f.append(fmin)
-        castavg.append(cast)
-        silicate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
-                            'silicate': pd.Series(xavg),
-                            'silicate_flag_ios': pd.Series(xavg_f)})    
-    silicate_flags = []
-    for i in silicate_avg['silicate_flag_ios']:
-        silicate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
-
-    silicate_avg['silicate_flag_ios']=silicate_flags
-
-    #phosphate - # groupby cast, take mean of duplicates with same flag or take sample with best quality flag according to rank  
-    castavg = []                   
-    xavg = []
-    xavg_f = []
-
-    for cast, group in df_nuts.groupby('cast'):
-        fmin = group['phosphate_flag_rank'].min()
-        idx_fmin = (group['phosphate_flag_rank']==fmin)
-        group_fmin = group['phosphate'][idx_fmin]
-        xavg.append(group['phosphate'][idx_fmin].mean())
-        if len(group['phosphate'][idx_fmin])>1 and fmin==1:
-             xavg_f.append(6)
-        else:
-            xavg_f.append(fmin)
-        castavg.append(cast)
-        phosphate_avg = pd.DataFrame({'cast_number': pd.Series(castavg),
-                            'phosphate': pd.Series(xavg),
-                            'phosphate_flag_ios': pd.Series(xavg_f)})
-        
-    phosphate_flags = []
-    for i in phosphate_avg['phosphate_flag_ios']:
-        phosphate_flags.append(list(flag_rank_dict.keys())[list(flag_rank_dict.values()).index(i)])
-
-    phosphate_avg['phosphate_flag_ios']=phosphate_flags
-
-    #set index to cast number for dataframes with averages
-    phosphate_avg =phosphate_avg.set_index('cast_number')
-    nitrate_avg =nitrate_avg.set_index('cast_number')
-    silicate_avg =silicate_avg.set_index('cast_number')
+    # Average duplicates and assign qualify flags
+    nitrate_avg = quality_flags(df_nuts, 'nitrate', 'nitrate_flag_ios')
+    silicate_avg = quality_flags(df_nuts, 'silicate','silicate_flag_ios')
+    phosphate_avg = quality_flags(df_nuts, 'phosphate', 'phosphate_flag_ios')
 
     #stitch means and qualitfy flags together for each nutrient type
-    df_nuts_mean = pd.concat([phosphate_avg, nitrate_avg, silicate_avg], axis =1)
+    df_nuts_mean = pd.concat([nitrate_avg, silicate_avg, phosphate_avg], axis =1)
    
     #convert dataframe to xarray dataset
     ds_nuts_mean = xr.Dataset.from_dataframe(df_nuts_mean) 
