@@ -1,0 +1,16 @@
+
+biogeochem.egg-info/dependency_links.txt
+biogeochem.egg-info/not-zip-safe
+biogeochem.egg-info/PKG-INFO
+biogeochem.egg-info/requires.txt
+biogeochem.egg-info/SOURCES.txt
+biogeochem.egg-info/top_level.txt
+build/lib/biogeochem/__init__.py
+build/lib/biogeochem/alk.py
+build/lib/biogeochem/calc.py
+build/lib/biogeochem/clean.py
+build/lib/biogeochem/ctd.py
+build/lib/biogeochem/io.py
+build/lib/biogeochem/plot.py
+build/lib/biogeochem/utils.py
+dist/biogeochem-0.1.0-py3.7.egg
