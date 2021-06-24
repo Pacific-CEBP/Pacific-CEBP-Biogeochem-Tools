@@ -346,7 +346,7 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
                                 'valid_range': (0,9),
                                 'flag_values': '0,1,2,3,4,5,6,7,8,9',
                                 'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected',
-                                'WHPO_Variable_Name': 'QUALT1'}                    
+                                'WHPO_Variable_Name': 'SALNTY_FLAG_W'}                    
 
     # Drop bottle number columns
     ds_btl = ds_btl.drop(['salt_btl', 'salt_dup'])
@@ -421,7 +421,7 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
                                'valid_range': (0,9),
                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
-                               'WHPO_Variable_Name': 'QUALT1'}     
+                               'WHPO_Variable_Name': 'NO2+NO3_FLAG_W'}     
 
     ds_btl['silicate_flag_ios'].attrs = {'long_name': 'dissolved silicate concentration quality',
                                'standard_name': 'mole_concentration_of_silicate_in_sea_water quality_flag',
@@ -429,7 +429,7 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
                                'valid_range': (0,9),
                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
-                               'WHPO_Variable_Name': 'QUALT1'} 
+                               'WHPO_Variable_Name': 'SILCAT_FLAG_W'} 
 
     ds_btl['phosphate_flag_ios'].attrs = {'long_name': 'dissolved phosphate concentration quality',
                                'standard_name': 'mole_concentration_of_phosphate_in_sea_water quality_flag',
@@ -437,7 +437,7 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
                                'valid_range': (0,9),
                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
-                               'WHPO_Variable_Name': 'QUALT1'}     
+                               'WHPO_Variable_Name': 'PHSPHT_FLAG_W'}     
 
     # Drop bottle numbers
     ds_btl = ds_btl.drop(['nut_btl', 'nut_dup'])
@@ -503,7 +503,7 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
                            'valid_range': (0,9),
                            'flag_values': '0,1,2,3,4,5,6,7,8,9',
                            'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
-                           'WHPO_Variable_Name': 'QUALT1'} 
+                           'WHPO_Variable_Name': 'TCARBN_FLAG_W'} 
 
     ds_btl['ta_flag_ios'].attrs = {'long_name': 'total alkalinity quality',
                            'standard_name': 'sea_water_alkalinity_expressed_as_mole_equivalent quality_flag',
@@ -511,7 +511,7 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
                            'valid_range': (0,9),
                            'flag_values': '0,1,2,3,4,5,6,7,8,9',
                            'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
-                           'WHPO_Variable_Name': 'QUALT1'}     
+                           'WHPO_Variable_Name': 'ALKALI_FLAG_W'}     
 
     # Drop bottle number columns
     ds_btl = ds_btl.drop(['dic_btl', 'dic_dup'])
@@ -521,6 +521,59 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
 
     print('done.')
 
+def merge_del18o(btl_fname, del18o_fname, root_dir=None, btl_dir=None,
+    del18o_dir=None):
+    """Merge results from oxygen isotope analyses.  If user supplies
+    root_dir, the assumption is that all directories follow the
+    standard pattern.  Otherwise, directories are needed for bottle
+    and del18o files."""
+
+    if root_dir is not None:
+        btl_dir = os.path.join(root_dir, 'btl')
+        del18o_dir = os.path.join(btl_dir, 'del18o')
+
+    print('Merging oxygen isotopes...', end='', flush=True)
+
+    # Load bottle file
+    ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
+
+    # Load del18o file
+    df_del18o = pd.read_csv(os.path.join(del18o_dir, del18o_fname),
+        comment='#')
+    ds_del18o = xr.Dataset.from_dataframe(df_del18o)
+    ds_del18o = ds_del18o.rename({'cast': 'cast_number'})
+
+    #average duplicates and assign quality flags
+    df_del18o_mean = quality_flags(df_del18o, 'del18o','del18o_flag_woce')
+
+    #convert dataframe to xarray 
+    ds_del18o_mean = xr.Dataset.from_dataframe(df_del18o_mean)    
+
+    # Merge into bottle file
+    ds_btl = xr.merge([ds_btl, ds_del18o_mean])
+
+    # Attach metadata
+    ds_btl['del18o'].attrs = {'long_name': 'isotope_ratio_of_18O_to_16O',
+                                'standard_name': 'isotope_ratio_of_18O_to_16O_in_sea_water_excluding_solutes_and_solids',
+                                'units': '/MILLE',
+                                'data_min': np.nanmin(ds_btl['del18o'].values),
+                                'data_max': np.nanmax(ds_btl['del18o'].values),
+                                'WHPO_Variable_Name': 'DELO18'}
+
+    ds_btl['del18o_flag_woce'].attrs = {'long_name': 'isotope_ratio_of_18O_to_16O quality',
+                                'standard_name': 'isotope_ratio_of_18O_to_16O_in_sea_water_excluding_solutes_and_solids quality_flag',
+                                'units': '',
+                                'valid_range': (0,9),
+                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
+                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected',
+                                'WHPO_Variable_Name': 'DELO18_FLAG_W'} 
+    # Drop bottle number columns
+    ds_btl = ds_btl.drop(['del18o_btl', 'del18o_dup'])
+
+    # Save results
+    ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
+    
+    print('done.')
 
 def write_bottle_exchange(btl_fname, root_dir=None, btl_dir=None):
     if root_dir is not None:
