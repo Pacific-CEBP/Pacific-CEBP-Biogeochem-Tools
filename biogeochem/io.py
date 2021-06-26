@@ -12,6 +12,12 @@ import pyrsktools as rsk
 from . import ctd as bgc_ctd
 
 
+# define a few constants
+btl_flag_valid_range = (0,9)
+btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
+btl_flag_meanings = 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected'
+
+
 def load_event_log(fname):
     """Loads the event log .csv file.  Must contain specific columns
     in order to be successful.  Will add help to list those columns
@@ -343,9 +349,9 @@ def merge_bottle_salts(btl_fname, salinity_fname, root_dir=None, btl_dir=None,
     ds_btl['salinity_flag_ios'].attrs = {'long_name': 'practical salinity quality',
                                 'standard_name': 'sea_water_practical_salinity quality_flag',
                                 'units': '',
-                                'valid_range': (0,9),
-                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected',
+                                'valid_range': btl_flag_valid_range,
+                                'flag_values': btl_flag_values,
+                                'flag_meanings': btl_flag_meanings,
                                 'WHPO_Variable_Name': 'SALNTY_FLAG_W'}                    
 
     # Drop bottle number columns
@@ -418,25 +424,25 @@ def merge_nutrients(btl_fname, nutrients_fname, root_dir=None, btl_dir=None,
     ds_btl['nitrate_flag_ios'].attrs = {'long_name': 'dissolved nitrate + nitrite concentration quality ',
                                'standard_name': 'mole_concentration_of_nitrate_and_nitrite_in_sea_water quality_flag',
                                'units': '',
-                               'valid_range': (0,9),
-                               'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                               'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
+                               'valid_range': btl_flag_valid_range,
+                               'flag_values': btl_flag_values,
+                               'flag_meanings': btl_flag_meanings,
                                'WHPO_Variable_Name': 'NO2+NO3_FLAG_W'}     
 
     ds_btl['silicate_flag_ios'].attrs = {'long_name': 'dissolved silicate concentration quality',
                                'standard_name': 'mole_concentration_of_silicate_in_sea_water quality_flag',
                                'units': '',
-                               'valid_range': (0,9),
-                               'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                               'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
+                               'valid_range': btl_flag_valid_range,
+                               'flag_values': btl_flag_values,
+                               'flag_meanings': btl_flag_meanings,
                                'WHPO_Variable_Name': 'SILCAT_FLAG_W'} 
 
     ds_btl['phosphate_flag_ios'].attrs = {'long_name': 'dissolved phosphate concentration quality',
                                'standard_name': 'mole_concentration_of_phosphate_in_sea_water quality_flag',
                                'units': '',
-                               'valid_range': (0,9),
-                               'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                               'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
+                               'valid_range': btl_flag_valid_range,
+                               'flag_values': btl_flag_values,
+                               'flag_meanings': btl_flag_meanings,
                                'WHPO_Variable_Name': 'PHSPHT_FLAG_W'}     
 
     # Drop bottle numbers
@@ -500,17 +506,17 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
     ds_btl['dic_flag_ios'].attrs = {'long_name': 'dissolved inorganic carbon quality',
                            'standard_name': 'mole_concentration_of_dissolved_inorganic_carbon_in_sea_water quality_flag',
                            'units': '',
-                           'valid_range': (0,9),
-                           'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                           'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
+                           'valid_range': btl_flag_valid_range,
+                           'flag_values': btl_flag_values,
+                           'flag_meanings': btl_flag_meanings,
                            'WHPO_Variable_Name': 'TCARBN_FLAG_W'} 
 
     ds_btl['ta_flag_ios'].attrs = {'long_name': 'total alkalinity quality',
                            'standard_name': 'sea_water_alkalinity_expressed_as_mole_equivalent quality_flag',
                            'units': '',
-                           'valid_range': (0,9),
-                           'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                           'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates, Manual chromatographic peak measurement, Irregular digital chromatographic peak integration,Not collected',
+                           'valid_range': btl_flag_valid_range,
+                           'flag_values': btl_flag_values,
+                           'flag_meanings': btl_flag_meanings,
                            'WHPO_Variable_Name': 'ALKALI_FLAG_W'}     
 
     # Drop bottle number columns
@@ -563,9 +569,9 @@ def merge_del18o(btl_fname, del18o_fname, root_dir=None, btl_dir=None,
     ds_btl['del18o_flag_woce'].attrs = {'long_name': 'isotope_ratio_of_18O_to_16O quality',
                                 'standard_name': 'isotope_ratio_of_18O_to_16O_in_sea_water_excluding_solutes_and_solids quality_flag',
                                 'units': '',
-                                'valid_range': (0,9),
-                                'flag_values': '0,1,2,3,4,5,6,7,8,9',
-                                'flag_meanings': 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected',
+                                'valid_range': btl_flag_valid_range,
+                                'flag_values': btl_flag_values,
+                                'flag_meanings': btl_flag_meanings,
                                 'WHPO_Variable_Name': 'DELO18_FLAG_W'} 
     # Drop bottle number columns
     ds_btl = ds_btl.drop(['del18o_btl', 'del18o_dup'])
