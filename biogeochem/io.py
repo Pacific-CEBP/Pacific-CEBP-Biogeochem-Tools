@@ -15,7 +15,16 @@ from . import ctd as bgc_ctd
 # define a few constants
 btl_flag_valid_range = (0,9)
 btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
-btl_flag_meanings = 'Acceptable, Sample not analyzed, Acceptable, Questionable (probably good), Poor (probably bad), Not reported as noted bad during analysis, Mean of replicates,Manual chromatographic peak measurement,Irregular digital chromatographic peak integration, Not collected'
+btl_flag_meanings = 'Acceptable,' + \
+                    'Sample not analyzed,' + \
+                    'Acceptable,' + \
+                    'Questionable (probably good),' + \
+                    'Poor (probably bad),' + \
+                    'Not reported as noted bad during analysis,' + \
+                    'Mean of replicates,' + \
+                    'Manual chromatographic peak measurement,' + \
+                    'Irregular digital chromatographic peak integration,' + \
+                    'Not collected'
 
 
 def load_event_log(fname):
