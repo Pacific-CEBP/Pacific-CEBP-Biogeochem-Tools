@@ -62,7 +62,7 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
     if alk_fname is not None:
         pass
     if del18o_fname is not None:
-        pass
+        bgc_io.merge_del18o(btl_fname, del18o_fname, root_dir=root_dir)
     if doc_fname is not None:
         pass
 
