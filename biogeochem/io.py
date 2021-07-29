@@ -102,6 +102,9 @@ def read_rsk(fname):
                         'voltage_01': 'V1'})
         
         # as per ISO19115, create an instrument variable
+        # ---presently commented out until debugging can
+        # be completed---
+        """
         ds['instrument1'] = 'instrument1'
         ds['instrument1'].attrs = {'serial_number': f.instrument.serial,
                                    'calibration_date': '',
@@ -111,6 +114,7 @@ def read_rsk(fname):
                                    'long_name': 'RBR {} CTD'.format(f.instrument.model),
                                    'ncei_name': 'CTD',
                                    'make_model': f.instrument.model}
+        """
         
         # attach sensor meta-data
         ds['P'].attrs = {'long_name': 'absolute pressure',
@@ -146,7 +150,7 @@ def multi_read_rsk(flist):
     
     
 def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
-                     rsk_dir=None):
+                     rsk_dir=None, csv_export=True):
     """Import multiple raw ctd files in .rsk format from RBR CTD. If
     user supplies root_dir, the assumption is that all directories
     follow the standard pattern.  Otherwise, directories are needed
@@ -174,10 +178,12 @@ def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
     print('done.', flush=True)
 
     print('Saving merged CTD data...', end='', flush=True)
+    print(ds_raw, flush=True)
     raw_nc_fname = '{0:s}_raw.nc'.format(expocode)
-    raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
     ds_raw.to_netcdf(os.path.join(raw_dir, raw_nc_fname), 'w')
-    ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
+    if csv_export:
+        raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
+        ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
     print('done.')
 
     return ds_raw
