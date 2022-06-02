@@ -109,7 +109,11 @@ def depth(ds):
     ds['z'] = -xr.apply_ufunc(gsw.z_from_p, ds['P'], ds['lat'])
     ds['z'].attrs = {'long_name': 'depth',
                      'standard_name': '',
-                     'units': 'm'}
+                     'positive': 'down',
+                     'units': 'm',
+                     'data_min': np.min(ds['z'].values),
+                     'data_max': np.min(ds['z'].values,
+                     'WHPO_Variable_Name': '')}
     return ds
     
     
@@ -131,7 +135,8 @@ def absolute_salinity(ds):
                       'standard_name': 'sea_water_absolute_salinity',
                       'units': 'g/kg',
                       'data_min': np.nanmin(ds['SA'].values),
-                      'data_max': np.nanmax(ds['SA'].values)}
+                      'data_max': np.nanmax(ds['SA'].values),
+                      'WHPO_Variable_Name': ''}
     return ds
 
 
@@ -141,7 +146,8 @@ def conservative_temperature(ds):
                       'standard_name': 'sea_water_conservative_temperature',
                       'units': 'K',
                       'data_min': np.nanmin(ds['CT'].values),
-                      'data_max': np.nanmax(ds['CT'].values)}
+                      'data_max': np.nanmax(ds['CT'].values),
+                      'WHPO_Variable_Name': ''}
     return ds
 
 

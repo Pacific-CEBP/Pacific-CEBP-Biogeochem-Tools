@@ -95,7 +95,7 @@ def iso19115(cast_flist, root_dir=None, cast_dir=None):
 
             'creator_name': 'Paul Covert',
             'creator_institution': 'Fisheries and Oceans Canada; Institute of Ocean Sciences',
-            'creator_email': 'Paul.Covert2@dfo-mpo.gc.ca',
+            'creator_email': 'Paul.Covert@dfo-mpo.gc.ca',
 
             'sea_name': 'Coastal Waters of British Columbia',
             'feature_type': 'profile',
