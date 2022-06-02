@@ -14,3 +14,4 @@ build/lib/biogeochem/io.py
 build/lib/biogeochem/plot.py
 build/lib/biogeochem/utils.py
 dist/biogeochem-0.1.0-py3.7.egg
+.DS_Store
