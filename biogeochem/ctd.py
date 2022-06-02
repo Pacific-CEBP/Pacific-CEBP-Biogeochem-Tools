@@ -112,7 +112,7 @@ def depth(ds):
                      'positive': 'down',
                      'units': 'm',
                      'data_min': np.min(ds['z'].values),
-                     'data_max': np.min(ds['z'].values,
+                     'data_max': np.min(ds['z'].values),
                      'WHPO_Variable_Name': ''}
     return ds
     
