@@ -542,6 +542,7 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
 
     print('done.')
 
+
 def merge_del18o(btl_fname, del18o_fname, root_dir=None, btl_dir=None,
     del18o_dir=None):
     """Merge results from oxygen isotope analyses.  If user supplies
@@ -596,6 +597,7 @@ def merge_del18o(btl_fname, del18o_fname, root_dir=None, btl_dir=None,
     
     print('done.')
 
+
 def write_bottle_exchange(btl_fname, root_dir=None, btl_dir=None):
     if root_dir is not None:
         btl_dir = os.path.join(root_dir, 'btl')
@@ -608,4 +610,25 @@ def write_bottle_exchange(btl_fname, root_dir=None, btl_dir=None):
     df_btl = ds_btl.to_dataframe()
     df_btl.to_csv(os.path.join(btl_dir, (btl_fname + '.csv')))
     print('done.')
-    
+
+   
+def export_ctd_to_matlab(cast_flist, root_dir=None, ctd_dir=None):
+    """Generate Matlab .mat files.  If user supplies root_dir,
+    the assumption is that all directories follow the standard pattern.
+    Otherwise, directories are needed for cast_dir."""
+
+    if root_dir is not None:
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+
+    print('Creating Matlab (.mat) files...', end='', flush=True)
+    for cast_fname in cast_flist:
+
+        # load dataset
+        ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+
+        # create scipy vectors
+        
+        # save
+        ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
+
+    print('done.')
