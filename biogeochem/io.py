@@ -510,11 +510,11 @@ def merge_dic(btl_fname, dic_fname, root_dir=None, btl_dir=None,
                            'data_min': np.nanmin(ds_btl['dic'].values),
                            'data_max': np.nanmax(ds_btl['dic'].values),
                            'WHPO_Variable_Name': 'TCARBN'}
-    ds_btl['alkalinity'].attrs = {'long_name': 'total alkalinity',
+    ds_btl['ta'].attrs = {'long_name': 'total alkalinity',
                            'standard_name': 'sea_water_alkalinity_expressed_as_mole_equivalent',
                            'units': 'mol m-3',
-                           'data_min': np.nanmin(ds_btl['alkalinity'].values),
-                           'data_max': np.nanmax(ds_btl['alkalinity'].values),
+                           'data_min': np.nanmin(ds_btl['ta'].values),
+                           'data_max': np.nanmax(ds_btl['ta'].values),
                            'WHPO_Variable_Name': 'ALKALI'}
 
     # Metadata for quality flags
