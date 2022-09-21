@@ -24,6 +24,17 @@ def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
     df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # process ctd data
+    # 2022.09.21 - updated CTD processing code to leverage the new
+    #              pyRSKtools library.  
+    #              
+    #              Eliminate import/merge functionality in favor of
+    #              direct extraction of casts.  This will require a 
+    #              new entry the eventlog that identifies .rsk filename
+    #              for the cast.
+    #
+    #              Use built-in pyRSKtools routines for filtering,
+    #              loop removal (which I never wrote), etc.
+    """
     ds_raw = bgc_io.import_merge_rbr(rsk_flist, expocode, root_dir=root_dir)
     _, cast_flist = bgc_calc.extract_casts(ds_raw, df_event_log,
         root_dir=root_dir)
@@ -32,6 +43,10 @@ def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
     bgc_plot.plot_casts(cast_flist, root_dir=root_dir)
     bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
     bgc_clean.iso19115(cast_flist, root_dir=root_dir)
+    """
+    
+    
+    
 
 
 def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
