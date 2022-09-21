@@ -51,6 +51,7 @@ def load_event_log(fname):
                'lat': np.single, 
                'lon': np.single, 
                'sampling_platform': str,
+               'ctd_filename': str,
                'cast_f': np.int8,
                'niskin': np.single,
                'nisk_f': np.int8,
