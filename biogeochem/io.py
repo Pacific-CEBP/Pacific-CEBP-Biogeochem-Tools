@@ -73,134 +73,142 @@ def load_event_log(fname):
     return df_event_log
 
 
-def read_rsk(fname):
-    """Uses pyrsktools to read the RBR .rsk files.  Keeps only
-    the conductivity, pressure, temperature, and voltage channels.
-    Function returns an xarray Dataset that adheres to CCHDO/WOCE and
-    CF data naming and metadata."""
+# ** 2022.09.27 - read_rsk(), multi_read_rsk(), import_merge_rbr() and 
+#                 import_merge_aml() deprecated in favor of direct cast-file 
+#                 creating using new version of pyRSKtools.
+#
+# def read_rsk(fname):
+#     """Uses pyrsktools to read the RBR .rsk files.  Keeps only
+#     the conductivity, pressure, temperature, and voltage channels.
+#     Function returns an xarray Dataset that adheres to CCHDO/WOCE and
+#     CF data naming and metadata."""
+# 
+#     # Read from RBR "ruskin" file
+#     with rsk.open(fname) as f:
+#     
+#         df = pd.DataFrame(f.npsamples())
+#         df['timestamp'] = df['timestamp'].dt.tz_convert(None)
+#         
+#         df = df.set_index('timestamp')
+#         
+#         ds = xr.Dataset.from_dataframe(df)
+#         ds = ds.drop_vars(['conductivitycelltemperature_00', 
+#                            'pressuretemperature_00',
+#                            'depth_00',
+#                            'salinity_00',
+#                            'seapressure_00',
+#                            'specificconductivity_00',
+#                            'speedofsound_00'],
+#                           errors='ignore')
+#         ds = ds.rename({'pressure_00': 'P',
+#                         'conductivity_00': 'C',
+#                         'temperature_00': 'T', 
+#                         'voltage_00': 'V0', 
+#                         'voltage_01': 'V1'})
+#         
+#         # as per ISO19115, create an instrument variable
+#         # ---presently commented out until debugging can
+#         # be completed---
+#         """
+#         ds['instrument1'] = 'instrument1'
+#         ds['instrument1'].attrs = {'serial_number': f.instrument.serial,
+#                                    'calibration_date': '',
+#                                    'accuracy': '',
+#                                    'precision': '',
+#                                    'comment': '',
+#                                    'long_name': 'RBR {} CTD'.format(f.instrument.model),
+#                                    'ncei_name': 'CTD',
+#                                    'make_model': f.instrument.model}
+#         """
+#         
+#         # attach sensor meta-data
+#         ds['P'].attrs = {'long_name': 'absolute pressure',
+#                          'standard_name': 'sea_water_pressure',
+#                          'positive' : 'down',
+#                          'units': 'dbar',
+#                          'instrument': 'instrument1',
+#                          'WHPO_Variable_Name': 'CTDPRS'}
+#         ds['T'].attrs = {'long_name': 'temperature',
+#                          'standard_name': 'sea_water_temperature',
+#                          'units': 'C (ITS-90)',
+#                          'instrument': 'instrument1',
+#                          'ncei_name': 'WATER TEMPERATURE',
+#                          'WHPO_Variable_Name': 'CTDTMP'}
+#         ds['C'].attrs = {'long_name': 'conductivity',
+#                          'standard_name': 'sea_water_electrical_conductivity',
+#                          'units': 'mS/cm',
+#                          'instrument': 'instrument1'}
+#         ds['V0'].attrs = {'long_name': 'channel 0 voltage',
+#                           'standard_name': 'sensor_voltage_channel_0',
+#                           'units': 'Volts',
+#                           'instrument': 'instrument1'}
+#         ds['V1'].attrs = {'long_name': 'channel 1 voltage',
+#                           'standard_name': 'sensor_voltage_channel_1',
+#                           'units': 'Volts',
+#                           'instrument': 'instrument1'}
+#    
+#     return ds
+#     
+#     
+# def multi_read_rsk(flist):
+#     return xr.concat([read_rsk(fname) for fname in flist], dim='timestamp')
+#     
+#     
+# def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
+#                      rsk_dir=None, csv_export=True):
+#     """Import multiple raw ctd files in .rsk format from RBR CTD. If
+#     user supplies root_dir, the assumption is that all directories
+#     follow the standard pattern.  Otherwise, directories are needed
+#     for rsk_dir and raw_dir."""
+# 
+#     if root_dir is not None:
+#         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
+#         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
+# 
+#     print('Importing / merging raw CTD data for {0:s}...'.format(expocode),
+#           end='', flush=True)
+#     ds_raw = multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
+#                                  for rsk_fname in rsk_flist])
+#     val, idx = np.unique(ds_raw.timestamp, return_index=True)
+#     ds_raw = ds_raw.isel(timestamp=idx) # trim the rare duplicate index values
+#     ds_raw.attrs['expocode'] = expocode
+#     print('done.', flush=True)
+# 
+#     print('Correcting zero-order holds in raw traces...', end='', flush=True)
+#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
+#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
+#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
+#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
+#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
+#     print('done.', flush=True)
+# 
+#     print('Saving merged CTD data...', end='', flush=True)
+#     print(ds_raw, flush=True)
+#     raw_nc_fname = '{0:s}_raw.nc'.format(expocode)
+#     ds_raw.to_netcdf(os.path.join(raw_dir, raw_nc_fname), 'w')
+#     if csv_export:
+#         raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
+#         ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
+#     print('done.')
+# 
+#     return ds_raw
+# 
+# 
+# def import_merge_aml(aml_flist, expocode, root_dir=None, raw_dir=None,
+#                      aml_dir=None):
+#     """Import multiple raw ctd files in .csv format AML CTD. If
+#     user supplies root_dir, the assumption is that all directories
+#     follow the standard pattern.  Otherwise, directories are needed
+#     for aml_dir and raw_dir."""
+# 
+#     if root_dir is not None:
+#         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
+#         aml_dir = os.path.join(raw_dir, 'aml')
+#
+# ** 2022.09.27 - end of deprecation block **
 
-    # Read from RBR "ruskin" file
-    with rsk.open(fname) as f:
-    
-        df = pd.DataFrame(f.npsamples())
-        df['timestamp'] = df['timestamp'].dt.tz_convert(None)
-        
-        df = df.set_index('timestamp')
-        
-        ds = xr.Dataset.from_dataframe(df)
-        ds = ds.drop_vars(['conductivitycelltemperature_00', 
-                           'pressuretemperature_00',
-                           'depth_00',
-                           'salinity_00',
-                           'seapressure_00',
-                           'specificconductivity_00',
-                           'speedofsound_00'],
-                          errors='ignore')
-        ds = ds.rename({'pressure_00': 'P',
-                        'conductivity_00': 'C',
-                        'temperature_00': 'T', 
-                        'voltage_00': 'V0', 
-                        'voltage_01': 'V1'})
-        
-        # as per ISO19115, create an instrument variable
-        # ---presently commented out until debugging can
-        # be completed---
-        """
-        ds['instrument1'] = 'instrument1'
-        ds['instrument1'].attrs = {'serial_number': f.instrument.serial,
-                                   'calibration_date': '',
-                                   'accuracy': '',
-                                   'precision': '',
-                                   'comment': '',
-                                   'long_name': 'RBR {} CTD'.format(f.instrument.model),
-                                   'ncei_name': 'CTD',
-                                   'make_model': f.instrument.model}
-        """
-        
-        # attach sensor meta-data
-        ds['P'].attrs = {'long_name': 'absolute pressure',
-                         'standard_name': 'sea_water_pressure',
-                         'positive' : 'down',
-                         'units': 'dbar',
-                         'instrument': 'instrument1',
-                         'WHPO_Variable_Name': 'CTDPRS'}
-        ds['T'].attrs = {'long_name': 'temperature',
-                         'standard_name': 'sea_water_temperature',
-                         'units': 'C (ITS-90)',
-                         'instrument': 'instrument1',
-                         'ncei_name': 'WATER TEMPERATURE',
-                         'WHPO_Variable_Name': 'CTDTMP'}
-        ds['C'].attrs = {'long_name': 'conductivity',
-                         'standard_name': 'sea_water_electrical_conductivity',
-                         'units': 'mS/cm',
-                         'instrument': 'instrument1'}
-        ds['V0'].attrs = {'long_name': 'channel 0 voltage',
-                          'standard_name': 'sensor_voltage_channel_0',
-                          'units': 'Volts',
-                          'instrument': 'instrument1'}
-        ds['V1'].attrs = {'long_name': 'channel 1 voltage',
-                          'standard_name': 'sensor_voltage_channel_1',
-                          'units': 'Volts',
-                          'instrument': 'instrument1'}
-   
-    return ds
-    
-    
-def multi_read_rsk(flist):
-    return xr.concat([read_rsk(fname) for fname in flist], dim='timestamp')
-    
-    
-def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
-                     rsk_dir=None, csv_export=True):
-    """Import multiple raw ctd files in .rsk format from RBR CTD. If
-    user supplies root_dir, the assumption is that all directories
-    follow the standard pattern.  Otherwise, directories are needed
-    for rsk_dir and raw_dir."""
-
-    if root_dir is not None:
-        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
-        rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
-
-    print('Importing / merging raw CTD data for {0:s}...'.format(expocode),
-          end='', flush=True)
-    ds_raw = multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
-                                 for rsk_fname in rsk_flist])
-    val, idx = np.unique(ds_raw.timestamp, return_index=True)
-    ds_raw = ds_raw.isel(timestamp=idx) # trim the rare duplicate index values
-    ds_raw.attrs['expocode'] = expocode
-    print('done.', flush=True)
-
-    print('Correcting zero-order holds in raw traces...', end='', flush=True)
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
-    print('done.', flush=True)
-
-    print('Saving merged CTD data...', end='', flush=True)
-    print(ds_raw, flush=True)
-    raw_nc_fname = '{0:s}_raw.nc'.format(expocode)
-    ds_raw.to_netcdf(os.path.join(raw_dir, raw_nc_fname), 'w')
-    if csv_export:
-        raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
-        ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
-    print('done.')
-
-    return ds_raw
-
-
-def import_merge_aml(aml_flist, expocode, root_dir=None, raw_dir=None,
-                     aml_dir=None):
-    """Import multiple raw ctd files in .csv format AML CTD. If
-    user supplies root_dir, the assumption is that all directories
-    follow the standard pattern.  Otherwise, directories are needed
-    for aml_dir and raw_dir."""
-
-    if root_dir is not None:
-        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
-        aml_dir = os.path.join(raw_dir, 'aml')
-
+def load_casts(df_event_log, expocode, root_dir=None, raw_dir=None):
+    return
 
 def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     """Create bottle file for the entire cruise.  This file contains
