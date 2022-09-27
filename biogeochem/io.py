@@ -208,8 +208,8 @@ def load_event_log(fname):
 #
 # ** 2022.09.27 - end of deprecation block **
 
-def load_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
-               rsk_dir=None, aml_dir=None):
+def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
+               cast_dir=None, rsk_dir=None, aml_dir=None):
     """Load and save individual ctd casts from raw ctd files. If
     user supplies root_dir, the assumption is that all directories
     follow the standard pattern.  Otherwise, directories are needed
@@ -219,9 +219,65 @@ def load_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
         aml_dir = os.path.join(raw_dir, 'aml')
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+    if not(os.path.isdir(cast_dir)):
+        os.mkdir(cast_dir)
+       
+    print('Extracting casts...', end='', flush=True)
+    cast_flist = []
+    for cast_info in df_event_log.itertuples():
+        if cast_info.cast_f == 2:
+            print(cast_info.ctd_filename)
+            """
+            # extract data
+            ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 
+                                                 cast_info.tend))
+            ds_cast['time'] = ds_cast['timestamp'][-1]  # cast bottom
+            ds_cast['time'].attrs = {'long_name': 'cast date/time (utc)',
+                                     'standard_name': 'time'}
+
+            # add geolocation
+            ds_cast['lat'] = cast_info.lat
+            ds_cast['lat'].attrs = {'long_name': 'latitude',
+                                    'standard_name': 'latitude',
+                                    'positive' : 'north',
+                                    'units': 'degree_north'}
+            ds_cast['lon'] = cast_info.lon
+            ds_cast['lon'].attrs = {'long_name': 'longitude',
+                                    'standard_name': 'longitude',
+                                    'positive' : 'east',
+                                    'units': 'degree_east'}
+
+            # correct for atmospheric pressure
+            half_second = np.timedelta64(500, 'ms')
+            tslice = slice(cast_info.tair - half_second,
+                           cast_info.tair + half_second)
+            Pair = (ds_raw['P'].sel(timestamp=tslice).mean(skipna=True)) * 1.e4
+            ds_cast = ctd.sea_pressure(ds_cast, Pair)
+
+            # create copies of T, C, and P to be used for QC plots, as
+            # the default action of the ctd calculation routines is to
+            # overwrite the inputs.
+            ds_cast['P_raw'] = ds_cast['P']
+            ds_cast['T_raw'] = ds_cast['T']
+            ds_cast['C_raw'] = ds_cast['C']
+
+            # add cast attributes
+            ds_cast.attrs['station_id'] = cast_info.stn
+            ds_cast.attrs['station_name'] = cast_info.name
+            ds_cast.attrs['cast_number'] = np.int(cast_info.Index)
+
+            # save netcdf cast file
+            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(ds_raw.expocode,
+                cast_info.Index)
+            cast_flist.append(cast_fname)
+            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
+            """
+            
+    print('done.')
+
+    return cast_dir, cast_flist
     
-        
-    return
 
 def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     """Create bottle file for the entire cruise.  This file contains
@@ -273,12 +329,12 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
 
     return btl_fname
 
+
 def quality_flags(df, variable, flag_column_name):
-    
-    """
-    (Pandas DataFrame, string, string)
+    """ (Pandas DataFrame, string, string)
     Takes dataframe,varible column name (as string) and flag cloumn
-    name (as string) as written in df e.g. (df_salts, 'salinity', 'salinity_flag_ios')    
+    name (as string) as written in df e.g. (df_salts, 'salinity', 
+    'salinity_flag_ios')    
     Takes mean of good (flag 2) duplicates and asssigns a flag of 6. 
     Otherwise takes sample with the best quality flag. 
     If there is just a single sample with no dupliate pair, that value is 
