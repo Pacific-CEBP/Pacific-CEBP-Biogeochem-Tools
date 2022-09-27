@@ -51,6 +51,7 @@ def load_event_log(fname):
                'lat': np.single, 
                'lon': np.single, 
                'sampling_platform': str,
+               'ctd_make': str,
                'ctd_filename': str,
                'cast_f': np.int8,
                'niskin': np.single,
@@ -207,7 +208,19 @@ def load_event_log(fname):
 #
 # ** 2022.09.27 - end of deprecation block **
 
-def load_casts(df_event_log, expocode, root_dir=None, raw_dir=None):
+def load_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
+               rsk_dir=None, aml_dir=None):
+    """Load and save individual ctd casts from raw ctd files. If
+    user supplies root_dir, the assumption is that all directories
+    follow the standard pattern.  Otherwise, directories are needed
+    for rsk_dir and raw_dir."""
+ 
+    if root_dir is not None:
+        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
+        rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
+        aml_dir = os.path.join(raw_dir, 'aml')
+    
+        
     return
 
 def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
