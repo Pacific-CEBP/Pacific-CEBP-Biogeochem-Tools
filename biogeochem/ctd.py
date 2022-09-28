@@ -77,8 +77,17 @@ def bin(ds, bins):
                            range(np.size(bins) - 1)])
 
     # bin the data
-    ds = ds.groupby_bins('P', bins, labels=bin_centers, precision=4,
-                         include_lowest=True, restore_coord_dims=True).mean(dim=xr.ALL_DIMS, skipna=True)
+    ds = ds.groupby_bins(
+        'P', 
+        bins, 
+        labels=bin_centers, 
+        precision=4,
+        include_lowest=True, 
+        restore_coord_dims=True
+    ).mean(
+        dim=xr.ALL_DIMS, 
+        skipna=True
+    )
 
     # to do: pass thru all attributes
     

@@ -16,73 +16,9 @@ from . import ctd
 # Cast extraction and calculation routines
 #-------------------------------------------------------------------------------
 
-def extract_casts(ds_raw, df_event_log, root_dir=None, cast_dir=None):
-    """Extract casts based on the event log, transform the data,
-    plot the results of the transformations (for QC purposes).
-    If user supplies root_dir, the assumption is that all directories
-    follow the standard pattern.  Otherwise, directories are needed
-    for cast_dir."""
-
-    if root_dir is not None:
-        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
-    if not(os.path.isdir(cast_dir)):
-        os.mkdir(cast_dir)
-
-    print('Extracting casts...', end='', flush=True)
-    cast_flist = []
-    for cast_info in df_event_log.itertuples():
-        if cast_info.cast_f == 2:
-            # extract data
-            ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 
-                                                 cast_info.tend))
-            ds_cast['time'] = ds_cast['timestamp'][-1]  # cast bottom
-            ds_cast['time'].attrs = {'long_name': 'cast date/time (utc)',
-                                     'standard_name': 'time'}
-
-            # add geolocation
-            ds_cast['lat'] = cast_info.lat
-            ds_cast['lat'].attrs = {'long_name': 'latitude',
-                                    'standard_name': 'latitude',
-                                    'positive' : 'north',
-                                    'units': 'degree_north'}
-            ds_cast['lon'] = cast_info.lon
-            ds_cast['lon'].attrs = {'long_name': 'longitude',
-                                    'standard_name': 'longitude',
-                                    'positive' : 'east',
-                                    'units': 'degree_east'}
-
-            # correct for atmospheric pressure
-            half_second = np.timedelta64(500, 'ms')
-            tslice = slice(cast_info.tair - half_second,
-                           cast_info.tair + half_second)
-            Pair = (ds_raw['P'].sel(timestamp=tslice).mean(skipna=True)) * 1.e4
-            ds_cast = ctd.sea_pressure(ds_cast, Pair)
-
-            # create copies of T, C, and P to be used for QC plots, as
-            # the default action of the ctd calculation routines is to
-            # overwrite the inputs.
-            ds_cast['P_raw'] = ds_cast['P']
-            ds_cast['T_raw'] = ds_cast['T']
-            ds_cast['C_raw'] = ds_cast['C']
-
-            # add cast attributes
-            ds_cast.attrs['station_id'] = cast_info.stn
-            ds_cast.attrs['station_name'] = cast_info.name
-            ds_cast.attrs['cast_number'] = np.int(cast_info.Index)
-
-            # save netcdf cast file
-            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(ds_raw.expocode,
-                cast_info.Index)
-            cast_flist.append(cast_fname)
-            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
-    print('done.')
-
-    return cast_dir, cast_flist
-
-
 def filter_casts(cast_flist, root_dir=None, cast_dir=None):
-    """Apply despike and lowpass filters to raw sensor data in each
-    cast.  Finish by binning the data.  Do this for every .nc file
+    """Apply a2d hold, despike and lowpass filters to raw sensor data 
+    in each cast.  Finish by binning the data.  Do this for every .nc file
     in the ctd cast data directory.  If user supplies root_dir, the
     assumption is that all directories follow the standard pattern.
     Otherwise, directories are needed for cast_dir."""
@@ -95,6 +31,16 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
 
         # load dataset
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+
+        # correct zero-order holds
+        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'P')
+        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'T')
+        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'C')
+        
+        # for plotting purposes, copy T, C, and P.
+        ds_cast['P_raw'] = ds_cast['P']
+        ds_cast['T_raw'] = ds_cast['T']
+        ds_cast['C_raw'] = ds_cast['C']
 
         # despike data
         ds_cast = ctd.despike(ds_cast, 'T', std_limit=5, kernel_size=3)

@@ -76,106 +76,7 @@ def load_event_log(fname):
     return df_event_log
 
 
-# ** 2022.09.27 - read_rsk(), multi_read_rsk(), import_merge_rbr() and 
-#                 import_merge_aml() deprecated in favor of direct cast-file 
-#                 creating using new version of pyRSKtools.
-#
-# def read_rsk(fname):
-#     """Uses pyrsktools to read the RBR .rsk files.  Keeps only
-#     the conductivity, pressure, temperature, and voltage channels.
-#     Function returns an xarray Dataset that adheres to CCHDO/WOCE and
-#     CF data naming and metadata."""
-# 
-#     # Read from RBR "ruskin" file
-#     with rsk.open(fname) as f:
-#     
-#         df = pd.DataFrame(f.npsamples())
-#         df['timestamp'] = df['timestamp'].dt.tz_convert(None)
-#         
-#         df = df.set_index('timestamp')
-#         
-#         ds = xr.Dataset.from_dataframe(df)
-#         ds = ds.drop_vars(['conductivitycelltemperature_00', 
-#                            'pressuretemperature_00',
-#                            'depth_00',
-#                            'salinity_00',
-#                            'seapressure_00',
-#                            'specificconductivity_00',
-#                            'speedofsound_00'],
-#                           errors='ignore')
-#         ds = ds.rename({'pressure_00': 'P',
-#                         'conductivity_00': 'C',
-#                         'temperature_00': 'T', 
-#                         'voltage_00': 'V0', 
-#                         'voltage_01': 'V1'})
-#         
-#         # as per ISO19115, create an instrument variable
-#         # ---presently commented out until debugging can
-#         # be completed---
-#         """
-#         ds['instrument1'] = 'instrument1'
-#         ds['instrument1'].attrs = {'serial_number': f.instrument.serial,
-#                                    'calibration_date': '',
-#                                    'accuracy': '',
-#                                    'precision': '',
-#                                    'comment': '',
-#                                    'long_name': 'RBR {} CTD'.format(f.instrument.model),
-#                                    'ncei_name': 'CTD',
-#                                    'make_model': f.instrument.model}
-#         """
-#         
-#         # attach sensor meta-data
-#         ds['P'].attrs = {'long_name': 'absolute pressure',
-#                          'standard_name': 'sea_water_pressure',
-#                          'positive' : 'down',
-#                          'units': 'dbar',
-#                          'instrument': 'instrument1',
-#                          'WHPO_Variable_Name': 'CTDPRS'}
-#         ds['T'].attrs = {'long_name': 'temperature',
-#                          'standard_name': 'sea_water_temperature',
-#                          'units': 'C (ITS-90)',
-#                          'instrument': 'instrument1',
-#                          'ncei_name': 'WATER TEMPERATURE',
-#                          'WHPO_Variable_Name': 'CTDTMP'}
-#         ds['C'].attrs = {'long_name': 'conductivity',
-#                          'standard_name': 'sea_water_electrical_conductivity',
-#                          'units': 'mS/cm',
-#                          'instrument': 'instrument1'}
-#         ds['V0'].attrs = {'long_name': 'channel 0 voltage',
-#                           'standard_name': 'sensor_voltage_channel_0',
-#                           'units': 'Volts',
-#                           'instrument': 'instrument1'}
-#         ds['V1'].attrs = {'long_name': 'channel 1 voltage',
-#                           'standard_name': 'sensor_voltage_channel_1',
-#                           'units': 'Volts',
-#                           'instrument': 'instrument1'}
-#    
-#     return ds
-#     
-#     
-# def multi_read_rsk(flist):
-#     return xr.concat([read_rsk(fname) for fname in flist], dim='timestamp')
-#     
-#     
-# def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
-#                      rsk_dir=None, csv_export=True):
-#     """Import multiple raw ctd files in .rsk format from RBR CTD. If
-#     user supplies root_dir, the assumption is that all directories
-#     follow the standard pattern.  Otherwise, directories are needed
-#     for rsk_dir and raw_dir."""
-# 
-#     if root_dir is not None:
-#         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
-#         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
-# 
-#     print('Importing / merging raw CTD data for {0:s}...'.format(expocode),
-#           end='', flush=True)
-#     ds_raw = multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
-#                                  for rsk_fname in rsk_flist])
-#     val, idx = np.unique(ds_raw.timestamp, return_index=True)
-#     ds_raw = ds_raw.isel(timestamp=idx) # trim the rare duplicate index values
-#     ds_raw.attrs['expocode'] = expocode
-#     print('done.', flush=True)
+
 # 
 #     print('Correcting zero-order holds in raw traces...', end='', flush=True)
 #     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
@@ -185,30 +86,7 @@ def load_event_log(fname):
 #     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
 #     print('done.', flush=True)
 # 
-#     print('Saving merged CTD data...', end='', flush=True)
-#     print(ds_raw, flush=True)
-#     raw_nc_fname = '{0:s}_raw.nc'.format(expocode)
-#     ds_raw.to_netcdf(os.path.join(raw_dir, raw_nc_fname), 'w')
-#     if csv_export:
-#         raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
-#         ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
-#     print('done.')
-# 
-#     return ds_raw
-# 
-# 
-# def import_merge_aml(aml_flist, expocode, root_dir=None, raw_dir=None,
-#                      aml_dir=None):
-#     """Import multiple raw ctd files in .csv format AML CTD. If
-#     user supplies root_dir, the assumption is that all directories
-#     follow the standard pattern.  Otherwise, directories are needed
-#     for aml_dir and raw_dir."""
-# 
-#     if root_dir is not None:
-#         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
-#         aml_dir = os.path.join(raw_dir, 'aml')
-#
-# ** 2022.09.27 - end of deprecation block **
+
 
 def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                cast_dir=None, rsk_dir=None, aml_dir=None):
@@ -241,70 +119,93 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                     
                     # extract downcast
                     rsk.readdata(cast_info.tstart, cast_info.tend)
+
+                    # create xarray dataset
+                    time = rsk.data["timestamp"][-1]
+                    C = rsk.data["conductivity"]
+                    P = rsk.data["pressure"] - patm
+                    T = rsk.data["temperature"]
+                    ds_cast = xr.Dataset(
+                        data_vars=dict(
+                            C=(["z"], C),
+                            T=(["z"], T),
+                        ),
+                        coords=dict(
+                            P=(["z"], P),
+                            lon=cast_info.lon,
+                            lat=cast_info.lat,
+                            time=time,
+                        ),
+                    )
                     
-                    # derive sea pressure
-                    rsk.deriveseapressure(patm)
+                    # attach metadata
+                    ds_cast.attrs = {
+                        'expocode': expocode,
+                        'station_id' : cast_info.stn,
+                        'station_name' : cast_info.name,
+                        'cast_number' : np.int(cast_info.Index),
+                    }
+                            
+                    ds_cast['instrument1'] = 0
+                    ds_cast['instrument1'].attrs = {
+                        'serial_number': rsk.instrument.serialID,
+                        'calibration_date': '',
+                        'accuracy': '',
+                        'precision': '',
+                        'comment': '',
+                        'long_name': 'RBR {} CTD'.format(rsk.instrument.model),
+                        'ncei_name': 'CTD',
+                        'make_model': rsk.instrument.model,
+                    }
+
+                    ds_cast['time'].attrs = {
+                        'long_name': 'cast date/time (utc)',
+                        'standard_name': 'time',
+                    }
+                    ds_cast['lat'].attrs = {
+                        'long_name': 'latitude',
+                        'standard_name': 'latitude',
+                        'positive' : 'north',
+                        'units': 'degree_north',
+                    }
+                    ds_cast['lon'].attrs = {
+                        'long_name': 'longitude',
+                        'standard_name': 'longitude',
+                        'positive' : 'east',
+                        'units': 'degree_east',
+                    }
+                    ds_cast['P'].attrs = {
+                        'long_name': 'seawater pressure',
+                        'standard_name': 'sea_water_pressure_due_to_seawater',
+                        'positive' : 'down',
+                        'units': 'dbar',
+                        'instrument': 'instrument1',
+                        'WHPO_Variable_Name': 'CTDPRS',
+                    }
+                    ds_cast['T'].attrs = {
+                        'long_name': 'temperature',
+                        'standard_name': 'sea_water_temperature',
+                        'units': 'C (ITS-90)',
+                        'instrument': 'instrument1',
+                        'WHPO_Variable_Name': 'CTDTMP',
+                    }
+                    ds_cast['C'].attrs = {
+                        'long_name': 'conductivity',
+                        'standard_name': 'sea_water_electrical_conductivity',
+                        'units': 'mS/cm',
+                        'instrument': 'instrument1',
+                    }
                     
-                    # create a copy
-                    raw = rsk.copy()
-                    
-                    # correct A2D zero-order hold
-                    rsk.correcthold(action = "interp")
-                    
-                    # smooth salinity to account for thermistor time
-                    # constant being slower than cond. cell
-                    rsk.smooth(channels = ["salinity"], windowLength = 5)
+                    # save cast to netCDF    
+                    cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
+                        ds_cast.attrs["expocode"], cast_info.Index)
+                    cast_flist.append(cast_fname)
+                    ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
                     
             else:
                 pass
-            """
-            # extract data
-            ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 
-                                                 cast_info.tend))
-            ds_cast['time'] = ds_cast['timestamp'][-1]  # cast bottom
-            ds_cast['time'].attrs = {'long_name': 'cast date/time (utc)',
-                                     'standard_name': 'time'}
-
-            # add geolocation
-            ds_cast['lat'] = cast_info.lat
-            ds_cast['lat'].attrs = {'long_name': 'latitude',
-                                    'standard_name': 'latitude',
-                                    'positive' : 'north',
-                                    'units': 'degree_north'}
-            ds_cast['lon'] = cast_info.lon
-            ds_cast['lon'].attrs = {'long_name': 'longitude',
-                                    'standard_name': 'longitude',
-                                    'positive' : 'east',
-                                    'units': 'degree_east'}
-
-            # correct for atmospheric pressure
-            half_second = np.timedelta64(500, 'ms')
-            tslice = slice(cast_info.tair - half_second,
-                           cast_info.tair + half_second)
-            Pair = (ds_raw['P'].sel(timestamp=tslice).mean(skipna=True)) * 1.e4
-            ds_cast = ctd.sea_pressure(ds_cast, Pair)
-
-            # create copies of T, C, and P to be used for QC plots, as
-            # the default action of the ctd calculation routines is to
-            # overwrite the inputs.
-            ds_cast['P_raw'] = ds_cast['P']
-            ds_cast['T_raw'] = ds_cast['T']
-            ds_cast['C_raw'] = ds_cast['C']
-
-            # add cast attributes
-            ds_cast.attrs['station_id'] = cast_info.stn
-            ds_cast.attrs['station_name'] = cast_info.name
-            ds_cast.attrs['cast_number'] = np.int(cast_info.Index)
-
-            # save netcdf cast file
-            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(ds_raw.expocode,
-                cast_info.Index)
-            cast_flist.append(cast_fname)
-            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
-            """
-            
+    
     print('done.')
-
     return cast_dir, cast_flist
     
 
