@@ -7,12 +7,14 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
-import pyrsktools as rsk
+from pyrsktools import RSK
 
 from . import ctd as bgc_ctd
 
 
 # define a few constants
+half_second = np.timedelta64(500, 'ms')
+
 btl_flag_valid_range = (0,9)
 btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
 btl_flag_meanings = 'Acceptable,' + \
@@ -222,12 +224,39 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
         cast_dir = os.path.join(root_dir, 'ctd', 'cast')
     if not(os.path.isdir(cast_dir)):
         os.mkdir(cast_dir)
-       
-    print('Extracting casts...', end='', flush=True)
+     
+    print('Extracting casts...', flush=True)
     cast_flist = []
     for cast_info in df_event_log.itertuples():
         if cast_info.cast_f == 2:
-            print(cast_info.ctd_filename)
+            print('  {}'.format(cast_info.ctd_filename))
+            if cast_info.ctd_make == 'rbr':
+                rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
+                with RSK(rsk_fname) as rsk:
+                    # extract atmospheric pressure based on one
+                    # second interval around t_air
+                    rsk.readdata(cast_info.tair - half_second, 
+                        cast_info.tair + half_second)
+                    patm = np.nanmean(rsk.data["pressure"]) 
+                    
+                    # extract downcast
+                    rsk.readdata(cast_info.tstart, cast_info.tend)
+                    
+                    # derive sea pressure
+                    rsk.deriveseapressure(patm)
+                    
+                    # create a copy
+                    raw = rsk.copy()
+                    
+                    # correct A2D zero-order hold
+                    rsk.correcthold(action = "interp")
+                    
+                    # smooth salinity to account for thermistor time
+                    # constant being slower than cond. cell
+                    rsk.smooth(channels = ["salinity"], windowLength = 5)
+                    
+            else:
+                pass
             """
             # extract data
             ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 

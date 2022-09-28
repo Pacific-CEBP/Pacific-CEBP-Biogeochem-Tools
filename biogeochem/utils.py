@@ -44,11 +44,11 @@ def process_ctd_data(expocode, eventlog_fname, root_dir,
     bgc_calc.derive_insitu_properties(cast_flist, root_dir=root_dir)
     """
     _, cast_flist = bgc_io.load_ctd_casts(df_event_log, expocode, 
-        root_dir=None, raw_dir=None, cast_dir=None, rsk_dir=None, aml_dir=None)
+        root_dir=root_dir)
         
-    bgc_plot.plot_casts(cast_flist, root_dir=root_dir)
-    bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
-    bgc_clean.iso19115(cast_flist, root_dir=root_dir)
+    #bgc_plot.plot_casts(cast_flist, root_dir=root_dir)
+    #bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
+    #bgc_clean.iso19115(cast_flist, root_dir=root_dir)
     
     
     
