@@ -33,9 +33,9 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
 
         # correct zero-order holds
-        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'P')
-        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'T')
-        ds_cast = bgc_ctd.rbr_correct_zero_order_hold(ds_cast, 'C')
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'P')
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'T')
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'C')
         
         # for plotting purposes, copy T, C, and P.
         ds_cast['P_raw'] = ds_cast['P']
@@ -59,6 +59,23 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         #ds_cast = lp_filter(ds_cast, 'T', 1.)
         #ds_cast = lp_filter(ds_cast, 'C', 1.)
 
+        # save dataset
+        ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
+        
+    print('done.')
+    
+  
+def bin_casts(cast_flist, root_dir=None, cast_dir=None):
+
+    if root_dir is not None:
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+        
+    print('Binning full resolution sensor data...', end='', flush=True)
+    for cast_fname in cast_flist:
+
+        # load dataset
+        ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+        
         # copy full cast ahead of binning since binning is applied
         # to all data in dataset.
         ds_cast_full = ds_cast.copy(deep=True)
@@ -70,20 +87,14 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         # effect of assigning P_bins as the coordinate.
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-
+            """
             bin_width = 0.125
             bins = np.arange(0.0625, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
+            """
             bin_width = 0.250
             bins = np.arange(0.125, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
-
-        # restore scalars (ideally these would be ignored in binning
-        # function.  TODO!!)
-        ds_cast['lat'] = ds_cast_full['lat']
-        ds_cast['lon'] = ds_cast_full['lon']
-        ds_cast['Pair'] = ds_cast_full['Pair']
-        ds_cast['time'] = ds_cast_full['time']
 
         # restore full resolution data
         ds_cast['P_raw'] = ds_cast_full['P_raw']
@@ -92,18 +103,6 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         ds_cast['P_despike'] = ds_cast_full['P_despike']
         ds_cast['T_despike'] = ds_cast_full['T_despike']
         ds_cast['C_despike'] = ds_cast_full['C_despike']
-
-        # restore attributes
-        ds_cast.attrs = ds_cast_full.attrs
-        ds_cast['P_bins'].attrs = ds_cast_full['P'].attrs
-        ds_cast['T'].attrs = ds_cast_full['T'].attrs
-        ds_cast['C'].attrs = ds_cast_full['C'].attrs
-        ds_cast['V0'].attrs = ds_cast_full['V0'].attrs
-        ds_cast['V1'].attrs = ds_cast_full['V1'].attrs
-
-        # for plotting purposes, duplicate T and C
-        ds_cast['T_bins'] = ds_cast['T']
-        ds_cast['C_bins'] = ds_cast['C']
 
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))

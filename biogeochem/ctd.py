@@ -73,8 +73,9 @@ def bin(ds, bins):
     """Bin all variables by pressure."""
 
     # calculate bin centers
-    bin_centers = np.array([(bins[n] + bins[n+1]) / 2 for n in 
-                           range(np.size(bins) - 1)])
+    bin_centers = np.array(
+        [(bins[n] + bins[n+1]) / 2 for n in range(np.size(bins) - 1)]
+    )
 
     # bin the data
     ds = ds.groupby_bins(
@@ -86,11 +87,10 @@ def bin(ds, bins):
         restore_coord_dims=True
     ).mean(
         dim=xr.ALL_DIMS, 
-        skipna=True
+        skipna=True,
+        keep_attrs=True
     )
 
-    # to do: pass thru all attributes
-    
     return ds
 
 
