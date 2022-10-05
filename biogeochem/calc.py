@@ -12,8 +12,100 @@ import matplotlib.pyplot as plt
 from . import ctd
 
 
+
+def _sea_pressure(ds, Patm=101325.):
+    """Subtracts atmospheric pressure from the pressure channel,
+    converting absolute pressure to sea pressure."""
+    ds['Patm'] = Patm
+    ds['Patm'].attrs = {
+        'long_name': 'atmospheric pressure',
+        'standard_name': 'surface_air_pressure',
+        'units': 'Pa'
+    }                  
+    ds['P'] = ds['P'] - ds['Pair'] / 1.e4
+    ds['P'].attrs = {
+        'long_name' : 'pressure',
+        'standard_name' : 'sea_water_pressure_due_to_seawater',
+        'positive' : 'down',
+        'units' : 'dbar',
+        'data_min': np.min(ds['P'].values),
+        'data_max': np.max(ds['P'].values),
+        'WHPO_Variable_Name' : 'CTDPRS'
+    }
+    return ds
+
+
+def _depth(ds):
+    ds['z'] = -xr.apply_ufunc(gsw.z_from_p, ds['P'], ds['lat'])
+    ds['z'].attrs = {
+        'long_name': 'depth',
+        'standard_name': '',
+        'positive': 'down',
+        'units': 'm',
+        'data_min': np.min(ds['z'].values),
+        'data_max': np.min(ds['z'].values)
+    }
+    return ds
+    
+    
+def _practical_salinity(ds):
+    ds['SP'] = xr.apply_ufunc(gsw.SP_from_C, ds['C'], ds['T'], ds['P'])
+    ds['SP'].attrs = {
+        'long_name': 'practical salinity',
+        'standard_name': 'sea_water_practical_salinity',
+        'units': '1',
+        'reference_scale': 'PSU'
+        'data_min': np.nanmin(ds['SP'].values),
+        'data_max': np.nanmax(ds['SP'].values),
+        'WHPO_Variable_Name': 'CTDSAL'
+    }
+    return ds
+
+
+def _absolute_salinity(ds):
+    ds['SA'] = xr.apply_ufunc(
+        gsw.SA_from_SP, 
+        ds['SP'], 
+        ds['P'], 
+        ds['lon'], 
+        ds['lat']
+    )
+    ds['SA'].attrs = {
+        'long_name': 'absolute salinity',
+        'standard_name': 'sea_water_absolute_salinity',
+        'units': 'g/kg',
+        'data_min': np.nanmin(ds['SA'].values),
+        'data_max': np.nanmax(ds['SA'].values)
+    }
+    return ds
+
+
+def _conservative_temperature(ds):
+    ds['CT'] = xr.apply_ufunc(gsw.CT_from_t, ds['SA'], ds['T'], ds['P'])
+    ds['CT'].attrs = {
+        'long_name': 'conservative temperature',
+        'standard_name': 'sea_water_conservative_temperature',
+        'units': 'K',
+        'data_min': np.nanmin(ds['CT'].values),
+        'data_max': np.nanmax(ds['CT'].values)
+    }
+    return ds
+
+
+def _potential_density_anomaly_surface(ds):
+    ds['sigma0'] = xr.apply_ufunc(gsw.sigma0, ds['SA'], ds['CT'])
+    ds['sigma0'].attrs = {
+        'long_name': 'potential density anomaly',
+        'standard_name': 'sea_water_sigma_theta',
+        'units': 'kg/m^3',
+        'data_min': np.nanmin(ds['sigma0'].values),
+        'data_max': np.nanmax(ds['sigma0'].values)
+    }
+    return ds
+    
+    
 #-------------------------------------------------------------------------------
-# Cast extraction and calculation routines
+# CTD cast calculation routines
 #-------------------------------------------------------------------------------
 
 def filter_casts(cast_flist, root_dir=None, cast_dir=None):
@@ -130,10 +222,10 @@ def derive_insitu_properties(cast_flist, root_dir=None, cast_dir=None):
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
 
         # calculate derived parameters
-        ds_cast = ctd.depth(ds_cast)
-        ds_cast = ctd.practical_salinity(ds_cast)
-        #ds_cast = ctd.absolute_salinity(ds_cast)
-        #ds_cast = ctd.conservative_temperature(ds_cast)
+        ds_cast = _depth(ds_cast)
+        ds_cast = _practical_salinity(ds_cast)
+        ds_cast = _absolute_salinity(ds_cast)
+        ds_cast = _conservative_temperature(ds_cast)
 
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))

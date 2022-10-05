@@ -115,7 +115,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                     # second interval around t_air
                     rsk.readdata(cast_info.tair - half_second, 
                         cast_info.tair + half_second)
-                    patm = np.nanmean(rsk.data["pressure"]) 
+                    Psurf = np.nanmean(rsk.data["pressure"])
                     
                     # extract downcast
                     rsk.readdata(cast_info.tstart, cast_info.tend)
@@ -123,18 +123,19 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                     # create xarray dataset
                     time = rsk.data["timestamp"][-1]
                     C = rsk.data["conductivity"]
-                    P = rsk.data["pressure"] - patm
+                    P = rsk.data["pressure"] - Psurf
                     T = rsk.data["temperature"]
                     ds_cast = xr.Dataset(
                         data_vars=dict(
                             C=(["z"], C),
                             T=(["z"], T),
-                        ),
-                        coords=dict(
-                            P=(["z"], P),
+                            Psurf=Psurf * 10**5,  # convert dbar to Pa
                             lon=cast_info.lon,
                             lat=cast_info.lat,
                             time=time,
+                        ),
+                        coords=dict(
+                            P=(["z"], P),
                         ),
                     )
                     
@@ -173,6 +174,11 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'standard_name': 'longitude',
                         'positive' : 'east',
                         'units': 'degree_east',
+                    }
+                    ds_cast['Psurf'].attrs = {
+                        'long_name': 'surface atmospheric pressure',
+                        'standard_name': 'surface_air_pressure',
+                        'units': 'Pa',
                     }
                     ds_cast['P'].attrs = {
                         'long_name': 'seawater pressure',
