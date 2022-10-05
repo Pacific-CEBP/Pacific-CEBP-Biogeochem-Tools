@@ -96,6 +96,9 @@ def bin_casts(cast_flist, root_dir=None, cast_dir=None):
             bins = np.arange(0.125, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
 
+        # copy attributes to P_bins and P_bins to P
+        ds_cast['P_bins'].attrs = ds_cast_full['P_raw'].attrs
+        
         # restore full resolution data
         ds_cast['P_raw'] = ds_cast_full['P_raw']
         ds_cast['T_raw'] = ds_cast_full['T_raw']
@@ -103,7 +106,7 @@ def bin_casts(cast_flist, root_dir=None, cast_dir=None):
         ds_cast['P_despike'] = ds_cast_full['P_despike']
         ds_cast['T_despike'] = ds_cast_full['T_despike']
         ds_cast['C_despike'] = ds_cast_full['C_despike']
-
+        
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
 
