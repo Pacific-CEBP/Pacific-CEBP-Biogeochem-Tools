@@ -8,21 +8,21 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
+import gsw
 
 from . import ctd
 
 
-
-def _sea_pressure(ds, Patm=101325.):
+def _sea_pressure(ds, Psurf=101325.):
     """Subtracts atmospheric pressure from the pressure channel,
     converting absolute pressure to sea pressure."""
-    ds['Patm'] = Patm
-    ds['Patm'].attrs = {
-        'long_name': 'atmospheric pressure',
+    ds['Psurf'] = Psurf
+    ds['Psurf'].attrs = {
+        'long_name': 'sea surface atmospheric pressure',
         'standard_name': 'surface_air_pressure',
         'units': 'Pa'
     }                  
-    ds['P'] = ds['P'] - ds['Pair'] / 1.e4
+    ds['P'] = ds['P'] - ds['Psurf'] / 1.e4
     ds['P'].attrs = {
         'long_name' : 'pressure',
         'standard_name' : 'sea_water_pressure_due_to_seawater',
@@ -36,14 +36,14 @@ def _sea_pressure(ds, Patm=101325.):
 
 
 def _depth(ds):
-    ds['z'] = -xr.apply_ufunc(gsw.z_from_p, ds['P'], ds['lat'])
-    ds['z'].attrs = {
+    ds['depth'] = -xr.apply_ufunc(gsw.z_from_p, ds['P'], ds['lat'])
+    ds['depth'].attrs = {
         'long_name': 'depth',
-        'standard_name': '',
+        'standard_name': 'depth',
         'positive': 'down',
         'units': 'm',
-        'data_min': np.min(ds['z'].values),
-        'data_max': np.min(ds['z'].values)
+        'data_min': np.min(ds['depth'].values),
+        'data_max': np.min(ds['depth'].values)
     }
     return ds
     
@@ -54,7 +54,7 @@ def _practical_salinity(ds):
         'long_name': 'practical salinity',
         'standard_name': 'sea_water_practical_salinity',
         'units': '1',
-        'reference_scale': 'PSU'
+        'reference_scale': 'PSU',
         'data_min': np.nanmin(ds['SP'].values),
         'data_max': np.nanmax(ds['SP'].values),
         'WHPO_Variable_Name': 'CTDSAL'
@@ -188,8 +188,15 @@ def bin_casts(cast_flist, root_dir=None, cast_dir=None):
             bins = np.arange(0.125, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
 
-        # copy attributes to P_bins and P_bins to P
+        # copy attributes to P_bins
         ds_cast['P_bins'].attrs = ds_cast_full['P_raw'].attrs
+        
+        # restore scalar data 
+        ds_cast['time'] = ds_cast_full['time']
+        ds_cast['lat'] = ds_cast_full['lat']
+        ds_cast['lon'] = ds_cast_full['lon']
+        ds_cast['Psurf'] = ds_cast_full['Psurf']
+        ds_cast['instrument1'] = ds_cast_full['instrument1']
         
         # restore full resolution data
         ds_cast['P_raw'] = ds_cast_full['P_raw']
@@ -198,6 +205,11 @@ def bin_casts(cast_flist, root_dir=None, cast_dir=None):
         ds_cast['P_despike'] = ds_cast_full['P_despike']
         ds_cast['T_despike'] = ds_cast_full['T_despike']
         ds_cast['C_despike'] = ds_cast_full['C_despike']
+        
+        # clean up pressure variables
+        ds_cast = ds_cast.drop_vars(['P'])
+        ds_cast = ds_cast.rename({'P_bins': 'P'})
+        ds_cast = ds_cast.swap_dims({'P': 'z'})
         
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))

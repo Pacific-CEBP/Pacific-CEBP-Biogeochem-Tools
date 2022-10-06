@@ -19,7 +19,7 @@ def plot_casts(cast_flist, root_dir=None, cast_dir=None, plot_dir=None):
 
     if root_dir is not None:
         cast_dir = os.path.join(root_dir, 'ctd', 'cast')
-        plot_dir = cast_dir
+        plot_dir = os.path.join(root_dir, 'ctd', 'plot')
     if not(os.path.isdir(plot_dir)):
         os.mkdir(plot_dir)
 
@@ -49,9 +49,9 @@ def plot_casts(cast_flist, root_dir=None, cast_dir=None, plot_dir=None):
             pass
 
         try:
-            axT.plot(ds_cast['T_bins'], ds_cast['P_bins'], 'k-', label='binned')
-            axC.plot(ds_cast['C_bins'], ds_cast['P_bins'], 'k-', label='binned')
-            axS.plot(ds_cast['SP'], ds_cast['P_bins'], 'k-', label='binned')
+            axT.plot(ds_cast['T'], ds_cast['P'], 'k-', label='binned')
+            axC.plot(ds_cast['C'], ds_cast['P'], 'k-', label='binned')
+            axS.plot(ds_cast['SP'], ds_cast['P'], 'k-', label='binned')
         except:
             pass
 

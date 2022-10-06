@@ -4,6 +4,7 @@ files.  All routines assume a rigid naming convention and
 directory structure."""
 
 import os
+import numpy as np
 import xarray as xr
 
 
@@ -48,19 +49,32 @@ def clean_cast_files(cast_flist, root_dir=None, cast_dir=None):
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
 
         # remove full resolution, time domain data
-        ds_cast = ds_cast.drop_vars(['timestamp', 'P',
-                                     'P_raw', 'T_raw', 'C_raw',
-                                     'P_despike', 'T_despike', 'C_despike',
-                                     'T_bins', 'C_bins'])
-
-        # remove raw data that have been used to calculate derived props
-        ds_cast = ds_cast.drop_vars(['C', 'V0', 'V1'])
-
-        # rename binned pressure to pressure
-        ds_cast = ds_cast.rename({'P_bins': 'P'})
-
-        # swap dimensions from P to z
-
+        ds_cast = ds_cast.drop_vars([
+           'timestamp',
+           'P_raw', 
+           'T_raw', 
+           'C_raw',
+           'P_despike',
+           'T_despike',
+           'C_despike',
+        ])
+        
+        # recalculate data min/max for arrays
+        ds_cast['C'].attrs['data_min'] = np.nanmin(ds_cast['C'].values)
+        ds_cast['C'].attrs['data_max'] = np.nanmax(ds_cast['C'].values)
+        ds_cast['CT'].attrs['data_min'] = np.nanmin(ds_cast['CT'].values)
+        ds_cast['CT'].attrs['data_max'] = np.nanmax(ds_cast['CT'].values)
+        ds_cast['depth'].attrs['data_min'] = np.nanmin(ds_cast['depth'].values)
+        ds_cast['depth'].attrs['data_max'] = np.nanmax(ds_cast['depth'].values)
+        ds_cast['P'].attrs['data_min'] = np.nanmin(ds_cast['P'].values)
+        ds_cast['P'].attrs['data_max'] = np.nanmax(ds_cast['P'].values)
+        ds_cast['SA'].attrs['data_min'] = np.nanmin(ds_cast['SA'].values)
+        ds_cast['SA'].attrs['data_max'] = np.nanmax(ds_cast['SA'].values)
+        ds_cast['SP'].attrs['data_min'] = np.nanmin(ds_cast['SP'].values)
+        ds_cast['SP'].attrs['data_max'] = np.nanmax(ds_cast['SP'].values)
+        ds_cast['T'].attrs['data_min'] = np.nanmin(ds_cast['T'].values)
+        ds_cast['T'].attrs['data_max'] = np.nanmax(ds_cast['T'].values)
+        
         # expand coordinates
         #ds_cast = ds_cast.expand_dims(['lat', 'lon', 'time'])
         #ds_cast = ds_cast.assign_coords({'lat': ds_cast['lat'],
@@ -91,7 +105,7 @@ def iso19115(cast_flist, root_dir=None, cast_dir=None):
         ds_cast = ds_cast.assign_attrs({
             'title': 'Physical water properties of the Port of Prince Rupert and Skeena River Estuary',
             'naming_authority': 'ca.gc.dfo-mpo',
-            'program': 'DFO OPP-CEBP',
+            'program': 'DFO CEBP',
 
             'creator_name': 'Paul Covert',
             'creator_institution': 'Fisheries and Oceans Canada; Institute of Ocean Sciences',

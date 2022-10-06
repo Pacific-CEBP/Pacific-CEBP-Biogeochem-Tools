@@ -76,18 +76,6 @@ def load_event_log(fname):
     return df_event_log
 
 
-
-# 
-#     print('Correcting zero-order holds in raw traces...', end='', flush=True)
-#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
-#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
-#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
-#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
-#     ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
-#     print('done.', flush=True)
-# 
-
-
 def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                cast_dir=None, rsk_dir=None, aml_dir=None):
     """Load and save individual ctd casts from raw ctd files. If
@@ -121,21 +109,18 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                     rsk.readdata(cast_info.tstart, cast_info.tend)
 
                     # create xarray dataset
-                    time = rsk.data["timestamp"][-1]
-                    C = rsk.data["conductivity"]
-                    P = rsk.data["pressure"] - Psurf
-                    T = rsk.data["temperature"]
                     ds_cast = xr.Dataset(
                         data_vars=dict(
-                            C=(["z"], C),
-                            T=(["z"], T),
-                            Psurf=Psurf * 10**5,  # convert dbar to Pa
+                            P=(["t"], rsk.data["pressure"] - Psurf),
+                            C=(["t"], rsk.data["conductivity"]),
+                            T=(["t"], rsk.data["temperature"]),
+                            Psurf=Psurf * 1.e4,
                             lon=cast_info.lon,
                             lat=cast_info.lat,
-                            time=time,
+                            time=rsk.data["timestamp"][-1]
                         ),
                         coords=dict(
-                            P=(["z"], P),
+                            timestamp=(["t"], rsk.data["timestamp"]),
                         ),
                     )
                     
@@ -185,13 +170,18 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'standard_name': 'sea_water_pressure_due_to_seawater',
                         'positive' : 'down',
                         'units': 'dbar',
+                        'data_min': np.nanmin(ds_cast['P'].values),
+                        'data_max': np.nanmax(ds_cast['P'].values),
                         'instrument': 'instrument1',
                         'WHPO_Variable_Name': 'CTDPRS',
                     }
                     ds_cast['T'].attrs = {
                         'long_name': 'temperature',
                         'standard_name': 'sea_water_temperature',
-                        'units': 'C (ITS-90)',
+                        'units': 'degree_C',
+                        'reference_scale': 'ITS-90',
+                        'data_min': np.nanmin(ds_cast['T'].values),
+                        'data_max': np.nanmax(ds_cast['T'].values),
                         'instrument': 'instrument1',
                         'WHPO_Variable_Name': 'CTDTMP',
                     }
@@ -199,6 +189,8 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'long_name': 'conductivity',
                         'standard_name': 'sea_water_electrical_conductivity',
                         'units': 'mS/cm',
+                        'data_min': np.nanmin(ds_cast['C'].values),
+                        'data_max': np.nanmax(ds_cast['C'].values),
                         'instrument': 'instrument1',
                     }
                     
