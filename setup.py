@@ -8,13 +8,13 @@ def readme():
         return f.read()
 
 setup(name='biogeochem',
-      version='0.1.0',
+      version='1.0.0b1',
 
       description='Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data',
       long_description=readme(),
 
       classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 3 - Beta',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.8',
         'Topic :: Scientific/Engineering :: Oceanography',

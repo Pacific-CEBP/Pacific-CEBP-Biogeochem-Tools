@@ -8,81 +8,109 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
+import gsw
 
 from . import ctd
 
 
+def _sea_pressure(ds, Psurf=101325.):
+    """Subtracts atmospheric pressure from the pressure channel,
+    converting absolute pressure to sea pressure."""
+    ds['Psurf'] = Psurf
+    ds['Psurf'].attrs = {
+        'long_name': 'sea surface atmospheric pressure',
+        'standard_name': 'surface_air_pressure',
+        'units': 'Pa'
+    }                  
+    ds['P'] = ds['P'] - ds['Psurf'] / 1.e4
+    ds['P'].attrs = {
+        'long_name' : 'pressure',
+        'standard_name' : 'sea_water_pressure_due_to_seawater',
+        'positive' : 'down',
+        'units' : 'dbar',
+        'data_min': np.min(ds['P'].values),
+        'data_max': np.max(ds['P'].values),
+        'WHPO_Variable_Name' : 'CTDPRS'
+    }
+    return ds
+
+
+def _depth(ds):
+    ds['depth'] = -xr.apply_ufunc(gsw.z_from_p, ds['P'], ds['lat'])
+    ds['depth'].attrs = {
+        'long_name': 'depth',
+        'standard_name': 'depth',
+        'positive': 'down',
+        'units': 'm',
+        'data_min': np.min(ds['depth'].values),
+        'data_max': np.min(ds['depth'].values)
+    }
+    return ds
+    
+    
+def _practical_salinity(ds):
+    ds['SP'] = xr.apply_ufunc(gsw.SP_from_C, ds['C'], ds['T'], ds['P'])
+    ds['SP'].attrs = {
+        'long_name': 'practical salinity',
+        'standard_name': 'sea_water_practical_salinity',
+        'units': '1',
+        'reference_scale': 'PSU',
+        'data_min': np.nanmin(ds['SP'].values),
+        'data_max': np.nanmax(ds['SP'].values),
+        'WHPO_Variable_Name': 'CTDSAL'
+    }
+    return ds
+
+
+def _absolute_salinity(ds):
+    ds['SA'] = xr.apply_ufunc(
+        gsw.SA_from_SP, 
+        ds['SP'], 
+        ds['P'], 
+        ds['lon'], 
+        ds['lat']
+    )
+    ds['SA'].attrs = {
+        'long_name': 'absolute salinity',
+        'standard_name': 'sea_water_absolute_salinity',
+        'units': 'g/kg',
+        'data_min': np.nanmin(ds['SA'].values),
+        'data_max': np.nanmax(ds['SA'].values)
+    }
+    return ds
+
+
+def _conservative_temperature(ds):
+    ds['CT'] = xr.apply_ufunc(gsw.CT_from_t, ds['SA'], ds['T'], ds['P'])
+    ds['CT'].attrs = {
+        'long_name': 'conservative temperature',
+        'standard_name': 'sea_water_conservative_temperature',
+        'units': 'K',
+        'data_min': np.nanmin(ds['CT'].values),
+        'data_max': np.nanmax(ds['CT'].values)
+    }
+    return ds
+
+
+def _potential_density_anomaly_surface(ds):
+    ds['sigma0'] = xr.apply_ufunc(gsw.sigma0, ds['SA'], ds['CT'])
+    ds['sigma0'].attrs = {
+        'long_name': 'potential density anomaly',
+        'standard_name': 'sea_water_sigma_theta',
+        'units': 'kg/m^3',
+        'data_min': np.nanmin(ds['sigma0'].values),
+        'data_max': np.nanmax(ds['sigma0'].values)
+    }
+    return ds
+    
+    
 #-------------------------------------------------------------------------------
-# Cast extraction and calculation routines
+# CTD cast calculation routines
 #-------------------------------------------------------------------------------
-
-def extract_casts(ds_raw, df_event_log, root_dir=None, cast_dir=None):
-    """Extract casts based on the event log, transform the data,
-    plot the results of the transformations (for QC purposes).
-    If user supplies root_dir, the assumption is that all directories
-    follow the standard pattern.  Otherwise, directories are needed
-    for cast_dir."""
-
-    if root_dir is not None:
-        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
-    if not(os.path.isdir(cast_dir)):
-        os.mkdir(cast_dir)
-
-    print('Extracting casts...', end='', flush=True)
-    cast_flist = []
-    for cast_info in df_event_log.itertuples():
-        if cast_info.cast_f == 2:
-            # extract data
-            ds_cast = ds_raw.sel(timestamp=slice(cast_info.tstart, 
-                                                 cast_info.tend))
-            ds_cast['time'] = ds_cast['timestamp'][-1]  # cast bottom
-            ds_cast['time'].attrs = {'long_name': 'cast date/time (utc)',
-                                     'standard_name': 'time'}
-
-            # add geolocation
-            ds_cast['lat'] = cast_info.lat
-            ds_cast['lat'].attrs = {'long_name': 'latitude',
-                                    'standard_name': 'latitude',
-                                    'positive' : 'north',
-                                    'units': 'degree_north'}
-            ds_cast['lon'] = cast_info.lon
-            ds_cast['lon'].attrs = {'long_name': 'longitude',
-                                    'standard_name': 'longitude',
-                                    'positive' : 'east',
-                                    'units': 'degree_east'}
-
-            # correct for atmospheric pressure
-            half_second = np.timedelta64(500, 'ms')
-            tslice = slice(cast_info.tair - half_second,
-                           cast_info.tair + half_second)
-            Pair = (ds_raw['P'].sel(timestamp=tslice).mean(skipna=True)) * 1.e4
-            ds_cast = ctd.sea_pressure(ds_cast, Pair)
-
-            # create copies of T, C, and P to be used for QC plots, as
-            # the default action of the ctd calculation routines is to
-            # overwrite the inputs.
-            ds_cast['P_raw'] = ds_cast['P']
-            ds_cast['T_raw'] = ds_cast['T']
-            ds_cast['C_raw'] = ds_cast['C']
-
-            # add cast attributes
-            ds_cast.attrs['station_id'] = cast_info.stn
-            ds_cast.attrs['station_name'] = cast_info.name
-            ds_cast.attrs['cast_number'] = np.int(cast_info.Index)
-
-            # save netcdf cast file
-            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(ds_raw.expocode,
-                cast_info.Index)
-            cast_flist.append(cast_fname)
-            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
-    print('done.')
-
-    return cast_dir, cast_flist
-
 
 def filter_casts(cast_flist, root_dir=None, cast_dir=None):
-    """Apply despike and lowpass filters to raw sensor data in each
-    cast.  Finish by binning the data.  Do this for every .nc file
+    """Apply a2d hold, despike and lowpass filters to raw sensor data 
+    in each cast.  Finish by binning the data.  Do this for every .nc file
     in the ctd cast data directory.  If user supplies root_dir, the
     assumption is that all directories follow the standard pattern.
     Otherwise, directories are needed for cast_dir."""
@@ -95,6 +123,16 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
 
         # load dataset
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+
+        # correct zero-order holds
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'P')
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'T')
+        ds_cast = ctd.rbr_correct_zero_order_hold(ds_cast, 'C')
+        
+        # for plotting purposes, copy T, C, and P.
+        ds_cast['P_raw'] = ds_cast['P']
+        ds_cast['T_raw'] = ds_cast['T']
+        ds_cast['C_raw'] = ds_cast['C']
 
         # despike data
         ds_cast = ctd.despike(ds_cast, 'T', std_limit=5, kernel_size=3)
@@ -113,6 +151,23 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         #ds_cast = lp_filter(ds_cast, 'T', 1.)
         #ds_cast = lp_filter(ds_cast, 'C', 1.)
 
+        # save dataset
+        ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
+        
+    print('done.')
+    
+  
+def bin_casts(cast_flist, root_dir=None, cast_dir=None):
+
+    if root_dir is not None:
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+        
+    print('Binning full resolution sensor data...', end='', flush=True)
+    for cast_fname in cast_flist:
+
+        # load dataset
+        ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+        
         # copy full cast ahead of binning since binning is applied
         # to all data in dataset.
         ds_cast_full = ds_cast.copy(deep=True)
@@ -124,21 +179,25 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         # effect of assigning P_bins as the coordinate.
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-
+            """
             bin_width = 0.125
             bins = np.arange(0.0625, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
+            """
             bin_width = 0.250
             bins = np.arange(0.125, ds_cast['P'].max(), bin_width)
             ds_cast = ctd.bin(ds_cast, bins)
 
-        # restore scalars (ideally these would be ignored in binning
-        # function.  TODO!!)
+        # copy attributes to P_bins
+        ds_cast['P_bins'].attrs = ds_cast_full['P_raw'].attrs
+        
+        # restore scalar data 
+        ds_cast['time'] = ds_cast_full['time']
         ds_cast['lat'] = ds_cast_full['lat']
         ds_cast['lon'] = ds_cast_full['lon']
-        ds_cast['Pair'] = ds_cast_full['Pair']
-        ds_cast['time'] = ds_cast_full['time']
-
+        ds_cast['Psurf'] = ds_cast_full['Psurf']
+        ds_cast['instrument1'] = ds_cast_full['instrument1']
+        
         # restore full resolution data
         ds_cast['P_raw'] = ds_cast_full['P_raw']
         ds_cast['T_raw'] = ds_cast_full['T_raw']
@@ -146,19 +205,12 @@ def filter_casts(cast_flist, root_dir=None, cast_dir=None):
         ds_cast['P_despike'] = ds_cast_full['P_despike']
         ds_cast['T_despike'] = ds_cast_full['T_despike']
         ds_cast['C_despike'] = ds_cast_full['C_despike']
-
-        # restore attributes
-        ds_cast.attrs = ds_cast_full.attrs
-        ds_cast['P_bins'].attrs = ds_cast_full['P'].attrs
-        ds_cast['T'].attrs = ds_cast_full['T'].attrs
-        ds_cast['C'].attrs = ds_cast_full['C'].attrs
-        ds_cast['V0'].attrs = ds_cast_full['V0'].attrs
-        ds_cast['V1'].attrs = ds_cast_full['V1'].attrs
-
-        # for plotting purposes, duplicate T and C
-        ds_cast['T_bins'] = ds_cast['T']
-        ds_cast['C_bins'] = ds_cast['C']
-
+        
+        # clean up pressure variables
+        ds_cast = ds_cast.drop_vars(['P'])
+        ds_cast = ds_cast.rename({'P_bins': 'P'})
+        ds_cast = ds_cast.swap_dims({'P': 'z'})
+        
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
 
@@ -182,10 +234,10 @@ def derive_insitu_properties(cast_flist, root_dir=None, cast_dir=None):
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
 
         # calculate derived parameters
-        ds_cast = ctd.depth(ds_cast)
-        ds_cast = ctd.practical_salinity(ds_cast)
-        #ds_cast = ctd.absolute_salinity(ds_cast)
-        #ds_cast = ctd.conservative_temperature(ds_cast)
+        ds_cast = _depth(ds_cast)
+        ds_cast = _practical_salinity(ds_cast)
+        ds_cast = _absolute_salinity(ds_cast)
+        ds_cast = _conservative_temperature(ds_cast)
 
         # save dataset
         ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))

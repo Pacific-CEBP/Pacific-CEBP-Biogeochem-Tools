@@ -14,8 +14,8 @@ from . import plot as bgc_plot
 # Full processing routines
 #-------------------------------------------------------------------------------
 
-def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
-    aml_flist=None):
+def process_ctd_data(expocode, eventlog_fname, root_dir):
+    
     """Follow the standard CTD processing procedure.  This assumes
     standard file and directory structure and no cruise-specific
     data treatment."""
@@ -24,14 +24,29 @@ def process_ctd_data(expocode, eventlog_fname, root_dir, rsk_flist=None,
     df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # process ctd data
-    ds_raw = bgc_io.import_merge_rbr(rsk_flist, expocode, root_dir=root_dir)
-    _, cast_flist = bgc_calc.extract_casts(ds_raw, df_event_log,
+    # 2022.09.21 - updated CTD processing code to leverage the new
+    #              pyRSKtools library.  
+    #              
+    #              Eliminate import/merge functionality in favor of
+    #              direct extraction of casts.  This will require a 
+    #              new entry the eventlog that identifies .rsk filename
+    #              for the cast.
+    #
+    #              Use built-in pyRSKtools routines for filtering,
+    #              loop removal (which I never wrote), etc.
+
+    _, cast_flist = bgc_io.load_ctd_casts(df_event_log, expocode, 
         root_dir=root_dir)
-    bgc_calc.filter_casts(cast_flist, root_dir=root_dir)
+    bgc_calc.filter_casts(cast_flist, root_dir=root_dir)   
+    bgc_calc.bin_casts(cast_flist, root_dir=root_dir)
     bgc_calc.derive_insitu_properties(cast_flist, root_dir=root_dir)
     bgc_plot.plot_casts(cast_flist, root_dir=root_dir)
     bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
     bgc_clean.iso19115(cast_flist, root_dir=root_dir)
+    
+    
+    
+    
 
 
 def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,

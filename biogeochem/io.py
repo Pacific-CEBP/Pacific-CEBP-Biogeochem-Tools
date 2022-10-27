@@ -7,12 +7,14 @@ import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
-import pyrsktools as rsk
+from pyrsktools import RSK
 
 from . import ctd as bgc_ctd
 
 
 # define a few constants
+half_second = np.timedelta64(500, 'ms')
+
 btl_flag_valid_range = (0,9)
 btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
 btl_flag_meanings = 'Acceptable,' + \
@@ -51,6 +53,8 @@ def load_event_log(fname):
                'lat': np.single, 
                'lon': np.single, 
                'sampling_platform': str,
+               'ctd_make': str,
+               'ctd_filename': str,
                'cast_f': np.int8,
                'niskin': np.single,
                'nisk_f': np.int8,
@@ -72,134 +76,136 @@ def load_event_log(fname):
     return df_event_log
 
 
-def read_rsk(fname):
-    """Uses pyrsktools to read the RBR .rsk files.  Keeps only
-    the conductivity, pressure, temperature, and voltage channels.
-    Function returns an xarray Dataset that adheres to CCHDO/WOCE and
-    CF data naming and metadata."""
-
-    # Read from RBR "ruskin" file
-    with rsk.open(fname) as f:
-    
-        df = pd.DataFrame(f.npsamples())
-        df['timestamp'] = df['timestamp'].dt.tz_convert(None)
-        
-        df = df.set_index('timestamp')
-        
-        ds = xr.Dataset.from_dataframe(df)
-        ds = ds.drop_vars(['conductivitycelltemperature_00', 
-                           'pressuretemperature_00',
-                           'depth_00',
-                           'salinity_00',
-                           'seapressure_00',
-                           'specificconductivity_00',
-                           'speedofsound_00'],
-                          errors='ignore')
-        ds = ds.rename({'pressure_00': 'P',
-                        'conductivity_00': 'C',
-                        'temperature_00': 'T', 
-                        'voltage_00': 'V0', 
-                        'voltage_01': 'V1'})
-        
-        # as per ISO19115, create an instrument variable
-        # ---presently commented out until debugging can
-        # be completed---
-        """
-        ds['instrument1'] = 'instrument1'
-        ds['instrument1'].attrs = {'serial_number': f.instrument.serial,
-                                   'calibration_date': '',
-                                   'accuracy': '',
-                                   'precision': '',
-                                   'comment': '',
-                                   'long_name': 'RBR {} CTD'.format(f.instrument.model),
-                                   'ncei_name': 'CTD',
-                                   'make_model': f.instrument.model}
-        """
-        
-        # attach sensor meta-data
-        ds['P'].attrs = {'long_name': 'absolute pressure',
-                         'standard_name': 'sea_water_pressure',
-                         'positive' : 'down',
-                         'units': 'dbar',
-                         'instrument': 'instrument1',
-                         'WHPO_Variable_Name': 'CTDPRS'}
-        ds['T'].attrs = {'long_name': 'temperature',
-                         'standard_name': 'sea_water_temperature',
-                         'units': 'C (ITS-90)',
-                         'instrument': 'instrument1',
-                         'ncei_name': 'WATER TEMPERATURE',
-                         'WHPO_Variable_Name': 'CTDTMP'}
-        ds['C'].attrs = {'long_name': 'conductivity',
-                         'standard_name': 'sea_water_electrical_conductivity',
-                         'units': 'mS/cm',
-                         'instrument': 'instrument1'}
-        ds['V0'].attrs = {'long_name': 'channel 0 voltage',
-                          'standard_name': 'sensor_voltage_channel_0',
-                          'units': 'Volts',
-                          'instrument': 'instrument1'}
-        ds['V1'].attrs = {'long_name': 'channel 1 voltage',
-                          'standard_name': 'sensor_voltage_channel_1',
-                          'units': 'Volts',
-                          'instrument': 'instrument1'}
-   
-    return ds
-    
-    
-def multi_read_rsk(flist):
-    return xr.concat([read_rsk(fname) for fname in flist], dim='timestamp')
-    
-    
-def import_merge_rbr(rsk_flist, expocode, root_dir=None, raw_dir=None,
-                     rsk_dir=None, csv_export=True):
-    """Import multiple raw ctd files in .rsk format from RBR CTD. If
+def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
+               cast_dir=None, rsk_dir=None, aml_dir=None):
+    """Load and save individual ctd casts from raw ctd files. If
     user supplies root_dir, the assumption is that all directories
     follow the standard pattern.  Otherwise, directories are needed
     for rsk_dir and raw_dir."""
-
+ 
     if root_dir is not None:
         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
-
-    print('Importing / merging raw CTD data for {0:s}...'.format(expocode),
-          end='', flush=True)
-    ds_raw = multi_read_rsk([os.path.join(rsk_dir, rsk_fname)
-                                 for rsk_fname in rsk_flist])
-    val, idx = np.unique(ds_raw.timestamp, return_index=True)
-    ds_raw = ds_raw.isel(timestamp=idx) # trim the rare duplicate index values
-    ds_raw.attrs['expocode'] = expocode
-    print('done.', flush=True)
-
-    print('Correcting zero-order holds in raw traces...', end='', flush=True)
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'P')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'T')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'C')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V0')
-    ds_raw = bgc_ctd.rbr_correct_zero_order_hold(ds_raw, 'V1')
-    print('done.', flush=True)
-
-    print('Saving merged CTD data...', end='', flush=True)
-    print(ds_raw, flush=True)
-    raw_nc_fname = '{0:s}_raw.nc'.format(expocode)
-    ds_raw.to_netcdf(os.path.join(raw_dir, raw_nc_fname), 'w')
-    if csv_export:
-        raw_csv_fname = '{0:s}_raw.csv'.format(expocode)
-        ds_raw.to_dataframe().to_csv(os.path.join(raw_dir, raw_csv_fname))
-    print('done.')
-
-    return ds_raw
-
-
-def import_merge_aml(aml_flist, expocode, root_dir=None, raw_dir=None,
-                     aml_dir=None):
-    """Import multiple raw ctd files in .csv format AML CTD. If
-    user supplies root_dir, the assumption is that all directories
-    follow the standard pattern.  Otherwise, directories are needed
-    for aml_dir and raw_dir."""
-
-    if root_dir is not None:
-        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
         aml_dir = os.path.join(raw_dir, 'aml')
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+    if not(os.path.isdir(cast_dir)):
+        os.mkdir(cast_dir)
+     
+    print('Extracting casts...', flush=True)
+    cast_flist = []
+    for cast_info in df_event_log.itertuples():
+        if cast_info.cast_f == 2:
+            print('  {}'.format(cast_info.ctd_filename))
+            if cast_info.ctd_make == 'rbr':
+                rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
+                with RSK(rsk_fname) as rsk:
+                    # extract atmospheric pressure based on one
+                    # second interval around t_air
+                    rsk.readdata(cast_info.tair - half_second, 
+                        cast_info.tair + half_second)
+                    Psurf = np.nanmean(rsk.data["pressure"])
+                    
+                    # extract downcast
+                    rsk.readdata(cast_info.tstart, cast_info.tend)
 
+                    # create xarray dataset
+                    ds_cast = xr.Dataset(
+                        data_vars=dict(
+                            P=(["t"], rsk.data["pressure"] - Psurf),
+                            C=(["t"], rsk.data["conductivity"]),
+                            T=(["t"], rsk.data["temperature"]),
+                            Psurf=Psurf * 1.e4,
+                            lon=cast_info.lon,
+                            lat=cast_info.lat,
+                            time=rsk.data["timestamp"][-1]
+                        ),
+                        coords=dict(
+                            timestamp=(["t"], rsk.data["timestamp"]),
+                        ),
+                    )
+                    
+                    # attach metadata
+                    ds_cast.attrs = {
+                        'expocode': expocode,
+                        'station_id' : cast_info.stn,
+                        'station_name' : cast_info.name,
+                        'cast_number' : np.int(cast_info.Index),
+                    }
+                            
+                    ds_cast['instrument1'] = 0
+                    ds_cast['instrument1'].attrs = {
+                        'serial_number': rsk.instrument.serialID,
+                        'calibration_date': '',
+                        'accuracy': '',
+                        'precision': '',
+                        'comment': '',
+                        'long_name': 'RBR {} CTD'.format(rsk.instrument.model),
+                        'ncei_name': 'CTD',
+                        'make_model': rsk.instrument.model,
+                    }
+
+                    ds_cast['time'].attrs = {
+                        'long_name': 'cast date/time (utc)',
+                        'standard_name': 'time',
+                    }
+                    ds_cast['lat'].attrs = {
+                        'long_name': 'latitude',
+                        'standard_name': 'latitude',
+                        'positive' : 'north',
+                        'units': 'degree_north',
+                    }
+                    ds_cast['lon'].attrs = {
+                        'long_name': 'longitude',
+                        'standard_name': 'longitude',
+                        'positive' : 'east',
+                        'units': 'degree_east',
+                    }
+                    ds_cast['Psurf'].attrs = {
+                        'long_name': 'surface atmospheric pressure',
+                        'standard_name': 'surface_air_pressure',
+                        'units': 'Pa',
+                    }
+                    ds_cast['P'].attrs = {
+                        'long_name': 'seawater pressure',
+                        'standard_name': 'sea_water_pressure_due_to_seawater',
+                        'positive' : 'down',
+                        'units': 'dbar',
+                        'data_min': np.nanmin(ds_cast['P'].values),
+                        'data_max': np.nanmax(ds_cast['P'].values),
+                        'instrument': 'instrument1',
+                        'WHPO_Variable_Name': 'CTDPRS',
+                    }
+                    ds_cast['T'].attrs = {
+                        'long_name': 'temperature',
+                        'standard_name': 'sea_water_temperature',
+                        'units': 'degree_C',
+                        'reference_scale': 'ITS-90',
+                        'data_min': np.nanmin(ds_cast['T'].values),
+                        'data_max': np.nanmax(ds_cast['T'].values),
+                        'instrument': 'instrument1',
+                        'WHPO_Variable_Name': 'CTDTMP',
+                    }
+                    ds_cast['C'].attrs = {
+                        'long_name': 'conductivity',
+                        'standard_name': 'sea_water_electrical_conductivity',
+                        'units': 'mS/cm',
+                        'data_min': np.nanmin(ds_cast['C'].values),
+                        'data_max': np.nanmax(ds_cast['C'].values),
+                        'instrument': 'instrument1',
+                    }
+                    
+                    # save cast to netCDF    
+                    cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
+                        ds_cast.attrs["expocode"], cast_info.Index)
+                    cast_flist.append(cast_fname)
+                    ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
+                    
+            else:
+                pass
+    
+    print('done.')
+    return cast_dir, cast_flist
+    
 
 def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     """Create bottle file for the entire cruise.  This file contains
@@ -251,12 +257,12 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
 
     return btl_fname
 
+
 def quality_flags(df, variable, flag_column_name):
-    
-    """
-    (Pandas DataFrame, string, string)
+    """ (Pandas DataFrame, string, string)
     Takes dataframe,varible column name (as string) and flag cloumn
-    name (as string) as written in df e.g. (df_salts, 'salinity', 'salinity_flag_ios')    
+    name (as string) as written in df e.g. (df_salts, 'salinity', 
+    'salinity_flag_ios')    
     Takes mean of good (flag 2) duplicates and asssigns a flag of 6. 
     Otherwise takes sample with the best quality flag. 
     If there is just a single sample with no dupliate pair, that value is 
