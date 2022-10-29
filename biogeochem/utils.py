@@ -24,17 +24,6 @@ def process_ctd_data(expocode, eventlog_fname, root_dir):
     df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # process ctd data
-    # 2022.09.21 - updated CTD processing code to leverage the new
-    #              pyRSKtools library.  
-    #              
-    #              Eliminate import/merge functionality in favor of
-    #              direct extraction of casts.  This will require a 
-    #              new entry the eventlog that identifies .rsk filename
-    #              for the cast.
-    #
-    #              Use built-in pyRSKtools routines for filtering,
-    #              loop removal (which I never wrote), etc.
-
     _, cast_flist = bgc_io.load_ctd_casts(df_event_log, expocode, 
         root_dir=root_dir)
     bgc_calc.filter_casts(cast_flist, root_dir=root_dir)   
@@ -44,11 +33,9 @@ def process_ctd_data(expocode, eventlog_fname, root_dir):
     bgc_clean.clean_cast_files(cast_flist, root_dir=root_dir)
     bgc_clean.iso19115(cast_flist, root_dir=root_dir)
     
+    return None
     
     
-    
-
-
 def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
     salinity_fname=None, nutrients_fname=None, dic_fname=None, alk_fname=None,
     del18o_fname=None, doc_fname=None):
@@ -83,7 +70,9 @@ def process_niskin_data(expocode, eventlog_fname, root_dir, niskin_length,
 
     # write to csv
     bgc_io.write_bottle_exchange(btl_fname, root_dir=root_dir)
-
+    
+    return None
+    
 
 def refit_alkalinity_titrations():
     pass
