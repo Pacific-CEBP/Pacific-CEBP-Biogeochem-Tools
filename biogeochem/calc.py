@@ -280,12 +280,8 @@ def extract_niskin_salts(btl_fname, raw_fname, niskin_length, root_dir=None,
             # of the last cast weren't saved.  In this case, there is no
             # tnisk and ctdsal etc cannot be calculated.  In this case,
             # enter NaN for those values.
-
             tnisk = ds_btl.sel(cast_number=cast)['time']
-            if np.isnat(tnisk):
-                missing_niskin_time = True
-            else:
-                missing_niskin_time = False
+            missing_niskin_time = np.isnat(tnisk)
 
             # Load ctd cast file
             expocode = ds_btl.sel(cast_number=cast)['expocode'].values
