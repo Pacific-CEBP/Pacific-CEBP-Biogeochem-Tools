@@ -86,7 +86,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
     if root_dir is not None:
         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
-        aml_dir = os.path.join(raw_dir, 'aml')
+        aml_dir = os.path.join(raw_dir, 'aml', 'csv')
         cast_dir = os.path.join(root_dir, 'ctd', 'cast')
     if not(os.path.isdir(cast_dir)):
         os.mkdir(cast_dir)
@@ -124,14 +124,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         ),
                     )
                     
-                    # attach metadata
-                    ds_cast.attrs = {
-                        'expocode': expocode,
-                        'station_id' : cast_info.stn,
-                        'station_name' : cast_info.name,
-                        'cast_number' : np.int(cast_info.Index),
-                    }
-                            
+                    # attach instrument metadata  
                     ds_cast['instrument1'] = 0
                     ds_cast['instrument1'].attrs = {
                         'serial_number': rsk.instrument.serialID,
@@ -143,65 +136,91 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'ncei_name': 'CTD',
                         'make_model': rsk.instrument.model,
                     }
-
-                    ds_cast['time'].attrs = {
-                        'long_name': 'cast date/time (utc)',
-                        'standard_name': 'time',
-                    }
-                    ds_cast['lat'].attrs = {
-                        'long_name': 'latitude',
-                        'standard_name': 'latitude',
-                        'positive' : 'north',
-                        'units': 'degree_north',
-                    }
-                    ds_cast['lon'].attrs = {
-                        'long_name': 'longitude',
-                        'standard_name': 'longitude',
-                        'positive' : 'east',
-                        'units': 'degree_east',
-                    }
-                    ds_cast['Psurf'].attrs = {
-                        'long_name': 'surface atmospheric pressure',
-                        'standard_name': 'surface_air_pressure',
-                        'units': 'Pa',
-                    }
-                    ds_cast['P'].attrs = {
-                        'long_name': 'seawater pressure',
-                        'standard_name': 'sea_water_pressure_due_to_seawater',
-                        'positive' : 'down',
-                        'units': 'dbar',
-                        'data_min': np.nanmin(ds_cast['P'].values),
-                        'data_max': np.nanmax(ds_cast['P'].values),
-                        'instrument': 'instrument1',
-                        'WHPO_Variable_Name': 'CTDPRS',
-                    }
-                    ds_cast['T'].attrs = {
-                        'long_name': 'temperature',
-                        'standard_name': 'sea_water_temperature',
-                        'units': 'degree_C',
-                        'reference_scale': 'ITS-90',
-                        'data_min': np.nanmin(ds_cast['T'].values),
-                        'data_max': np.nanmax(ds_cast['T'].values),
-                        'instrument': 'instrument1',
-                        'WHPO_Variable_Name': 'CTDTMP',
-                    }
-                    ds_cast['C'].attrs = {
-                        'long_name': 'conductivity',
-                        'standard_name': 'sea_water_electrical_conductivity',
-                        'units': 'mS/cm',
-                        'data_min': np.nanmin(ds_cast['C'].values),
-                        'data_max': np.nanmax(ds_cast['C'].values),
-                        'instrument': 'instrument1',
-                    }
-                    
-                    # save cast to netCDF    
-                    cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
-                        ds_cast.attrs["expocode"], cast_info.Index)
-                    cast_flist.append(cast_fname)
-                    ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
-                    
+              
+            elif cast_info.ctd_make == 'aml':
+                aml_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
+                df_cast = pd.read_csv(
+                    aml_fname,
+                    skiprows=117,
+                    usecols=[0, 1, 2, 3, 4],
+                    names=[
+                        'date',
+                        'time',
+                        'conductivity',
+                        'temperature',
+                        'pressure'
+                    ],
+                    parse_dates={'datetime': [0,1]}
+                )
+                print(df_cast)
+                
             else:
                 pass
+            
+            # attach cast metadata
+            ds_cast.attrs = {
+                'expocode': expocode,
+                'station_id' : cast_info.stn,
+                'station_name' : cast_info.name,
+                'cast_number' : np.int(cast_info.Index),
+            }
+            ds_cast['time'].attrs = {
+                'long_name': 'cast date/time (utc)',
+                'standard_name': 'time',
+            }
+            ds_cast['lat'].attrs = {
+                'long_name': 'latitude',
+                'standard_name': 'latitude',
+                'positive' : 'north',
+                'units': 'degree_north',
+            }
+            ds_cast['lon'].attrs = {
+                'long_name': 'longitude',
+                'standard_name': 'longitude',
+                'positive' : 'east',
+                'units': 'degree_east',
+            }
+            ds_cast['Psurf'].attrs = {
+                'long_name': 'surface atmospheric pressure',
+                'standard_name': 'surface_air_pressure',
+                'units': 'Pa',
+            }
+            ds_cast['P'].attrs = {
+                'long_name': 'seawater pressure',
+                'standard_name': 'sea_water_pressure_due_to_seawater',
+                'positive' : 'down',
+                'units': 'dbar',
+                'data_min': np.nanmin(ds_cast['P'].values),
+                'data_max': np.nanmax(ds_cast['P'].values),
+                'instrument': 'instrument1',
+                'WHPO_Variable_Name': 'CTDPRS',
+            }
+            ds_cast['T'].attrs = {
+                'long_name': 'temperature',
+                'standard_name': 'sea_water_temperature',
+                'units': 'degree_C',
+                'reference_scale': 'ITS-90',
+                'data_min': np.nanmin(ds_cast['T'].values),
+                'data_max': np.nanmax(ds_cast['T'].values),
+                'instrument': 'instrument1',
+                'WHPO_Variable_Name': 'CTDTMP',
+            }
+            ds_cast['C'].attrs = {
+                'long_name': 'conductivity',
+                'standard_name': 'sea_water_electrical_conductivity',
+                'units': 'mS/cm',
+                'data_min': np.nanmin(ds_cast['C'].values),
+                'data_max': np.nanmax(ds_cast['C'].values),
+                'instrument': 'instrument1',
+            }
+                     
+            # save cast to netCDF    
+            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
+                ds_cast.attrs["expocode"], 
+                cast_info.Index
+            )
+            cast_flist.append(cast_fname)
+            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
     
     print('done.')
     return cast_dir, cast_flist
