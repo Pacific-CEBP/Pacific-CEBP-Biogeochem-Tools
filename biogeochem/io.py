@@ -134,11 +134,19 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'comment': '',
                         'long_name': 'RBR {} CTD'.format(rsk.instrument.model),
                         'ncei_name': 'CTD',
-                        'make_model': rsk.instrument.model,
+                        'make_model': 'RBR {}'.format(rsk.instrument.model),
                     }
               
             elif cast_info.ctd_make == 'aml':
-                aml_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
+                
+                aml_fname = os.path.join(aml_dir, cast_info.ctd_filename)
+                
+                # extract info from header
+                """ *** faking it right now, since I only used AML for one cruise *** """
+                aml_instrument_model = 'Plus.X'
+                aml_instrument_serial_no = 50243
+                
+                # load file into csv
                 df_cast = pd.read_csv(
                     aml_fname,
                     skiprows=117,
@@ -150,9 +158,41 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'temperature',
                         'pressure'
                     ],
-                    parse_dates={'datetime': [0,1]}
+                    parse_dates={'timestamp': [0,1]}
                 )
-                print(df_cast)
+                df_cast = df_cast.set_index('timestamp')
+                
+                # select downcast
+                df_cast = df_cast.loc[cast_info.tstart:cast_info.tend]
+                
+                # create xarray dataset
+                ds_cast = xr.Dataset(
+                    data_vars=dict(
+                        P=(["t"], df_cast['pressure'].values),
+                        C=(["t"], df_cast['conductivity'].values),
+                        T=(["t"], df_cast['temperature'].values),
+                        Psurf=np.NaN,
+                        lon=cast_info.lon,
+                        lat=cast_info.lat,
+                        time=df_cast.index.values[-1]
+                    ),
+                    coords=dict(
+                        timestamp=(["t"], df_cast.index.values),
+                    ),
+                )
+                
+                # attach instrument metadata  
+                ds_cast['instrument1'] = 0
+                ds_cast['instrument1'].attrs = {
+                    'serial_number': aml_instrument_serial_no,
+                    'calibration_date': '',
+                    'accuracy': '',
+                    'precision': '',
+                    'comment': '',
+                    'long_name': 'AML {} CTD'.format(aml_instrument_model),
+                    'ncei_name': 'CTD',
+                    'make_model': 'AML {}'.format(aml_instrument_model),
+                    }
                 
             else:
                 pass
