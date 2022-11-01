@@ -316,6 +316,108 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
 
     return btl_fname
 
+          
+def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
+    btl_dir=None, raw_dir=None, cast_dir=None, rsk_dir=None, aml_dir=None):
+    """Calculate average in-situ temperature and salinity in Niskin
+    bottle at the time it was closed.  If user supplies root_dir, the
+    assumption is that all directories follow the standard pattern.
+    Otherwise, directories are needed for btl_dir, raw_dir, cast_dir,
+    and plots_dir"""
+
+    if root_dir is not None:
+        btl_dir = os.path.join(root_dir, 'btl')
+        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
+        rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
+        aml_dir = os.path.join(raw_dir, 'aml', 'csv')
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+
+    print('Calculating average niskin in situ properties...', end='',
+        flush=True)
+
+    # Load files
+    ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
+    
+    # Cycle through the bottles
+    ctdprs = []
+    ctdtmp = []
+    ctdsal = []
+    for cast in ds_btl['cast_number'].values:
+        if ds_btl.sel(cast_number=cast)['cast_f']==2:
+
+            # Check for valid tnisk.  Sometimes the RBR didn't upload the
+            # last few datapoints of the day and the niskin soak and upcast
+            # of the last cast weren't saved.  In this case, there is no
+            # tnisk and ctdsal etc cannot be calculated.  In this case,
+            # enter NaN for those values.
+            tnisk = ds_btl.sel(cast_number=cast)['time']
+            missing_niskin_time = np.isnat(tnisk)
+
+            # Load ctd cast file
+            #*#*#*#*#*#*#*#*#*#*#*#*#*
+            ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+
+            # obtain CTD pressure of niskin
+            if missing_niskin_time:
+                Pnisk = xr.DataArray(np.NaN)
+                Pnisk = Pnisk.assign_coords({'cast_number': cast})
+            else:
+                Praw = ds_raw['P'].sel(timestamp=tnisk, method='nearest')
+                Psens = Praw - ds_cast['Pair'] / 1.e4
+                Pnisk = Psens - ds_btl.sel(cast_number=cast)['niskin_height']
+                Pnisk = Pnisk.drop('timestamp')
+
+            # extract niskin pressure range sensor data from ctd downcast
+            if missing_niskin_time:
+                Tnisk = xr.DataArray(np.NaN)
+                SPnisk = xr.DataArray(np.NaN)
+            else:
+                #ds_cast_nisk = ds_cast.sel(P=[ctdprs - 0.50 * h : ctdprs + 0.50 * h], method='nearest')
+                ds_cast_nisk = ds_cast.sel(P=slice(Pnisk - 0.75 * niskin_length,
+                    Pnisk + 0.75 * niskin_length))
+                Tnisk = ds_cast_nisk['T'].mean()
+                SPnisk = ds_cast_nisk['SP'].mean()
+            Tnisk = Tnisk.assign_coords({'cast_number': cast})
+            SPnisk = SPnisk.assign_coords({'cast_number': cast})
+
+            # append extracted values to list; include proper dimensions
+            ctdprs.append(Pnisk)
+            ctdtmp.append(Tnisk)
+            ctdsal.append(SPnisk)
+
+    # Create DataArrays from ctdprs, ctdtmp, and ctdsal result lists, assign
+    # attributes and merge into the full bottle dataset.
+    da_ctdprs = xr.concat(ctdprs, dim='cast_number')
+    da_ctdprs.attrs = {'long_name': 'sensor pressure',
+                       'standard_name' : 'sea_water_pressure_due_to_seawater',
+                       'positive' : 'down',
+                       'units' : 'dbar',
+                       'data_min': np.nanmin(da_ctdprs.values),
+                       'data_max': np.nanmax(da_ctdprs.values),
+                       'WHPO_Variable_Name' : 'CTDPRS'}
+    da_ctdsal = xr.concat(ctdsal, dim='cast_number')
+    da_ctdsal.attrs = {'long_name': 'sensor practical salinity',
+                       'standard_name': 'sea_water_practical_salinity',
+                       'units': '',
+                       'data_min': np.nanmin(da_ctdsal.values),
+                       'data_max': np.nanmax(da_ctdsal.values),
+                       'WHPO_Variable_Name': 'CTDSAL'}
+    da_ctdtmp = xr.concat(ctdtmp, dim='cast_number')
+    da_ctdtmp.attrs = {'long_name': 'sensor temperature',
+                       'standard_name': 'sea_water_temperature',
+                       'units': 'C (ITS-90)',
+                       'data_min': np.nanmin(da_ctdtmp.values),
+                       'data_max': np.nanmax(da_ctdtmp.values),
+                       'WHPO_Variable_Name': 'CTDTMP'}
+    ds_btl = xr.merge([ds_btl,
+                       {'ctdprs': da_ctdprs},
+                       {'ctdsal': da_ctdsal},
+                       {'ctdtmp': da_ctdtmp}])
+
+    # Save results
+    ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
+    print('done.')
+    
 
 def quality_flags(df, variable, flag_column_name):
     """ (Pandas DataFrame, string, string)
