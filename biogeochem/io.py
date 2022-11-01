@@ -14,6 +14,7 @@ from . import ctd as bgc_ctd
 
 # define a few constants
 half_second = np.timedelta64(500, 'ms')
+one_second = np.timedelta64(1000, 'ms')
 
 btl_flag_valid_range = (0,9)
 btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
@@ -343,29 +344,37 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
     ctdtmp = []
     ctdsal = []
     for cast in ds_btl['cast_number'].values:
-        if ds_btl.sel(cast_number=cast)['cast_f']==2:
-
-            # Check for valid tnisk.  Sometimes the RBR didn't upload the
-            # last few datapoints of the day and the niskin soak and upcast
-            # of the last cast weren't saved.  In this case, there is no
-            # tnisk and ctdsal etc cannot be calculated.  In this case,
-            # enter NaN for those values.
-            tnisk = ds_btl.sel(cast_number=cast)['time']
-            missing_niskin_time = np.isnat(tnisk)
-
-            # Load ctd cast file
-            #*#*#*#*#*#*#*#*#*#*#*#*#*
+        if (
+            ds_btl.sel(cast_number=cast)['cast_f']==2 and # if ctd data exist
+            np.isnat(ds_btl.sel(cast_number=cast)['time'] # if tnisk exists
+        ):
+            # Load processed ctd cast file
+            cast_fname = '{%s}_{00d}_ctd.nc'.format(
+               ds_btl.sel(cast_number=cast)['expocode'],
+               cast
+            )
             ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
-
-            # obtain CTD pressure of niskin
-            if missing_niskin_time:
-                Pnisk = xr.DataArray(np.NaN)
-                Pnisk = Pnisk.assign_coords({'cast_number': cast})
+            
+            # Obtain CTD pressure of niskin
+            tnisk = ds_btl.sel(cast_number=cast)['time']
+            if cast_info.ctd_make =='rbr':
+                rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
+                rsk = RSK(rsk_fname)
+                rsk.open()
+                rsk.readdata(tnisk - half_second, tnisk + half_second)
+                rsk.close()
+            elif cast_info.ctd_make=='aml':
+                pass
             else:
-                Praw = ds_raw['P'].sel(timestamp=tnisk, method='nearest')
-                Psens = Praw - ds_cast['Pair'] / 1.e4
-                Pnisk = Psens - ds_btl.sel(cast_number=cast)['niskin_height']
-                Pnisk = Pnisk.drop('timestamp')
+                pass
+            
+            
+            # obtain CTD pressure of niskin. 
+            tnisk = ds_btl.sel(cast_number=cast)['time']
+            Praw = ds_raw['P'].sel(timestamp=tnisk, method='nearest')
+            Psens = Praw - ds_cast['Pair'] / 1.e4
+            Pnisk = Psens - ds_btl.sel(cast_number=cast)['niskin_height']
+            Pnisk = Pnisk.drop('timestamp')
 
             # extract niskin pressure range sensor data from ctd downcast
             if missing_niskin_time:
