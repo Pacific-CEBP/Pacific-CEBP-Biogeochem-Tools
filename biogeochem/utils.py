@@ -41,11 +41,10 @@ def process_niskin_data(
         eventlog_fname, 
         root_dir, 
         niskin_length,
-        extract_ctdsal=True,
+        extract_ctdsal=False,
         salinity_fname=None, 
         nutrients_fname=None, 
         dic_fname=None, 
-        alk_fname=None,
         del18o_fname=None, 
         doc_fname=None
     ):
@@ -72,24 +71,19 @@ def process_niskin_data(
             root_dir=root_dir
         )
     if salinity_fname is not None:
-        bgc_io.merge_bottle_salts(
-            btl_fname, 
-            salinity_fname, 
-            root_dir=root_dir
-        )
-        bgc_plot.plot_ctdsal_qc(btl_fname, root_dir=root_dir)
+        bgc_io.merge_bottle_salts(btl_fname, salinity_fname, root_dir=root_dir)
+        # bgc_plot.plot_ctdsal_qc(btl_fname, root_dir=root_dir) -- move to another location
     if nutrients_fname is not None:
         bgc_io.merge_nutrients(btl_fname, nutrients_fname, root_dir=root_dir)
     if dic_fname is not None:
         bgc_io.merge_dic(btl_fname, dic_fname, root_dir=root_dir)
-    if alk_fname is not None:
-        pass
     if del18o_fname is not None:
         bgc_io.merge_del18o(btl_fname, del18o_fname, root_dir=root_dir)
     if doc_fname is not None:
         pass
 
-    # write to csv
+    # cleanup and export to .csv
+    bgc_clean.clean_bottle_file(btl_fname, root_dir=root_dir)
     bgc_io.write_bottle_exchange(btl_fname, root_dir=root_dir)
     
     return None

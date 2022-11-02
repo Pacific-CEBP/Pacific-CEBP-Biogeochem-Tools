@@ -339,60 +339,64 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
     # Load files
     ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
     
+    # Filter by quality flag and data availability
+    good_cast = ds_btl['cast_f']==2
+    valid_tnisk = np.logical_not(np.isnat(ds_btl['time']))
+    ds_btl_ctdsal = ds_btl.where(
+       np.logical_and(good_cast, valid_tnisk), 
+       drop=True
+       )
+
     # Cycle through the bottles
     ctdprs = []
     ctdtmp = []
     ctdsal = []
-    for cast in ds_btl['cast_number'].values:
-        if (
-            ds_btl.sel(cast_number=cast)['cast_f']==2 and # if ctd data exist
-            np.isnat(ds_btl.sel(cast_number=cast)['time'] # if tnisk exists
-        ):
-            # Load processed ctd cast file
-            cast_fname = '{%s}_{00d}_ctd.nc'.format(
-               ds_btl.sel(cast_number=cast)['expocode'],
-               cast
-            )
-            ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
-            
-            # Obtain CTD pressure of niskin
-            tnisk = ds_btl.sel(cast_number=cast)['time']
-            if cast_info.ctd_make =='rbr':
-                rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename)
-                rsk = RSK(rsk_fname)
-                rsk.open()
-                rsk.readdata(tnisk - half_second, tnisk + half_second)
-                rsk.close()
-            elif cast_info.ctd_make=='aml':
-                pass
-            else:
-                pass
-            
-            
-            # obtain CTD pressure of niskin. 
-            tnisk = ds_btl.sel(cast_number=cast)['time']
-            Praw = ds_raw['P'].sel(timestamp=tnisk, method='nearest')
-            Psens = Praw - ds_cast['Pair'] / 1.e4
-            Pnisk = Psens - ds_btl.sel(cast_number=cast)['niskin_height']
-            Pnisk = Pnisk.drop('timestamp')
+    for cast in ds_btl_ctdsal['cast_number'].values:
+        btl_info = ds_btl_ctdsal.sel(cast_number=cast)
+        cast_info = df_event_log.loc[[cast]]
 
-            # extract niskin pressure range sensor data from ctd downcast
-            if missing_niskin_time:
-                Tnisk = xr.DataArray(np.NaN)
-                SPnisk = xr.DataArray(np.NaN)
-            else:
-                #ds_cast_nisk = ds_cast.sel(P=[ctdprs - 0.50 * h : ctdprs + 0.50 * h], method='nearest')
-                ds_cast_nisk = ds_cast.sel(P=slice(Pnisk - 0.75 * niskin_length,
-                    Pnisk + 0.75 * niskin_length))
-                Tnisk = ds_cast_nisk['T'].mean()
-                SPnisk = ds_cast_nisk['SP'].mean()
-            Tnisk = Tnisk.assign_coords({'cast_number': cast})
-            SPnisk = SPnisk.assign_coords({'cast_number': cast})
+        # Load processed ctd cast file
+        cast_fname = '{0}_{1:03d}_ct1.nc'.format(
+            btl_info['expocode'].values, 
+            cast)
+        ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+        
+        # Load raw ctd file; determine pressure at niskin depth
+        if cast_info.ctd_make.values[0]=='rbr':
+            rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename.values[0])
+            rsk = RSK(rsk_fname)
+            rsk.open()
+            rsk.readdata(
+                btl_info['time'].values - half_second, 
+                btl_info['time'].values + half_second
+                )
+            Praw = rsk.data["pressure"].mean()
+            Psens = Praw - ds_cast['Psurf'].values / 1.e4
+            rsk.close()
+        elif cast_info.ctd_make=='aml':
+            pass
+        else:
+            pass
+        Pnisk = Psens - btl_info['niskin_height'].values
+        print(ds_cast)
+        """
+        # extract niskin pressure range sensor data from ctd downcast
+        #ds_cast_nisk = ds_cast.sel(P=[ctdprs - 0.50 * h : ctdprs + 0.50 * h], method='nearest')
+        ds_cast_nisk = ds_cast.sel(P=slice(
+            Pnisk - 0.75*niskin_length,
+            Pnisk + 0.75*niskin_length
+            ))
+        
+        Tnisk = ds_cast_nisk['T'].mean()
+        SPnisk = ds_cast_nisk['SP'].mean()
+        Tnisk = Tnisk.assign_coords({'cast_number': cast})
+        SPnisk = SPnisk.assign_coords({'cast_number': cast})
 
-            # append extracted values to list; include proper dimensions
-            ctdprs.append(Pnisk)
-            ctdtmp.append(Tnisk)
-            ctdsal.append(SPnisk)
+        # append extracted values to list; include proper dimensions
+        ctdprs.append(Pnisk)
+        ctdtmp.append(Tnisk)
+        ctdsal.append(SPnisk)
+    
 
     # Create DataArrays from ctdprs, ctdtmp, and ctdsal result lists, assign
     # attributes and merge into the full bottle dataset.
@@ -425,6 +429,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
 
     # Save results
     ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
+    """
     print('done.')
     
 
