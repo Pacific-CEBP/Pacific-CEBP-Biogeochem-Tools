@@ -338,8 +338,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
 
     # Load files
     ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
-    print(ds_btl['time'])
-    """
+
     # Filter by quality flag and data availability
     good_cast = (ds_btl['cast_f']==2)
     valid_tnisk = np.logical_not(np.isnat(ds_btl['time']))
@@ -363,7 +362,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
             cast)
         ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
         
-        # Load raw ctd file; determine pressure at niskin depth
+        # Load raw ctd file; determine sensor pressure at niskin closure event
         if cast_info.ctd_make.values[0]=='rbr':
             rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename.values[0])
             rsk = RSK(rsk_fname)
@@ -379,28 +378,39 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
             pass
         else:
             pass
-        Pnisk = Psens - btl_info['niskin_height'].values
-        
+            
         # extract niskin pressure range sensor data from ctd downcast
-        #ds_cast_nisk = ds_cast.sel(P=[ctdprs - 0.50 * h : ctdprs + 0.50 * h], method='nearest')
+        Pnisk = Psens - btl_info['niskin_height'].values
         ds_cast_nisk = ds_cast.where(np.logical_and(
             ds_cast['P'] >= Pnisk - 0.75*niskin_length,
             ds_cast['P'] <= Pnisk + 0.75*niskin_length
             ))
         Tnisk = ds_cast_nisk['T'].mean()
         SPnisk = ds_cast_nisk['SP'].mean()
-        Tnisk = Tnisk.assign_coords({'cast_number': cast})
-        SPnisk = SPnisk.assign_coords({'cast_number': cast})
-        
-        # append extracted values to list; include proper dimensions
+
+        # append extracted values to list
         ctdprs.append(Pnisk)
         ctdtmp.append(Tnisk)
         ctdsal.append(SPnisk)
     
-    
     # Create DataArrays from ctdprs, ctdtmp, and ctdsal result lists, assign
     # attributes and merge into the full bottle dataset.
-    da_ctdprs = xr.concat(ctdprs, dim='cast_number')
+    da_ctdprs = xr.DataArray(
+        ctdprs,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+    da_ctdtmp = xr.DataArray(
+        ctdtmp,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+    da_ctdsal = xr.DataArray(
+        ctdsal,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+
     da_ctdprs.attrs = {'long_name': 'sensor pressure',
                        'standard_name' : 'sea_water_pressure_due_to_seawater',
                        'positive' : 'down',
@@ -408,14 +418,12 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
                        'data_min': np.nanmin(da_ctdprs.values),
                        'data_max': np.nanmax(da_ctdprs.values),
                        'WHPO_Variable_Name' : 'CTDPRS'}
-    da_ctdsal = xr.concat(ctdsal, dim='cast_number')
     da_ctdsal.attrs = {'long_name': 'sensor practical salinity',
                        'standard_name': 'sea_water_practical_salinity',
                        'units': '',
                        'data_min': np.nanmin(da_ctdsal.values),
                        'data_max': np.nanmax(da_ctdsal.values),
                        'WHPO_Variable_Name': 'CTDSAL'}
-    da_ctdtmp = xr.concat(ctdtmp, dim='cast_number')
     da_ctdtmp.attrs = {'long_name': 'sensor temperature',
                        'standard_name': 'sea_water_temperature',
                        'units': 'C (ITS-90)',
@@ -429,7 +437,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
 
     # Save results
     ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
-    """
+    
     print('done.')
     
 
