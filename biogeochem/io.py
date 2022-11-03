@@ -273,7 +273,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     results from discrete samples.  If user supplies root_dir, the
     assumption is that all directories follow the standard pattern.
     Otherwise, directories are needed for btl_dir."""
-
+    
     if root_dir is not None:
         btl_dir = os.path.join(root_dir, 'btl')
 
@@ -283,7 +283,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     ds_btl['expocode'] = xr.full_like(ds_btl['cast'], expocode, dtype='object')
     ds_btl = ds_btl.drop(['tair', 'tstart', 'tend', 'weather', 'sea', 'notes'])
     ds_btl = ds_btl.where(ds_btl['nisk_f']!=1, drop=True) # drop ctd-only casts
-
+    
     # Rename and recast (change data type)
     ds_btl = ds_btl.rename({'cast': 'cast_number', 'tnisk': 'time',
         'stn': 'station_id', 'name': 'station_name', 'niskin': 'sample_number',
@@ -291,7 +291,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     ds_btl['cast_number'] = ds_btl['cast_number'].astype(np.int16)
     ds_btl['sample_number_flag_w'] = ds_btl['sample_number_flag_w'].astype(np.int8)
     ds_btl['cast_f'] = ds_btl['cast_f'].astype(np.int8)
-
+    
     # Assign attributes
     ds_btl['cast_number'].attrs = {'long_name': 'cast number',
                                    'WHPO_Variable_Name': 'CASTNO'}
@@ -338,9 +338,10 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
 
     # Load files
     ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
-    
+    print(ds_btl['time'])
+    """
     # Filter by quality flag and data availability
-    good_cast = ds_btl['cast_f']==2
+    good_cast = (ds_btl['cast_f']==2)
     valid_tnisk = np.logical_not(np.isnat(ds_btl['time']))
     ds_btl_ctdsal = ds_btl.where(
        np.logical_and(good_cast, valid_tnisk), 
@@ -352,6 +353,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
     ctdtmp = []
     ctdsal = []
     for cast in ds_btl_ctdsal['cast_number'].values:
+        print(cast)
         btl_info = ds_btl_ctdsal.sel(cast_number=cast)
         cast_info = df_event_log.loc[[cast]]
 
@@ -370,7 +372,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
                 btl_info['time'].values - half_second, 
                 btl_info['time'].values + half_second
                 )
-            Praw = rsk.data["pressure"].mean()
+            Praw = rsk.data['pressure'].mean()
             Psens = Praw - ds_cast['Psurf'].values / 1.e4
             rsk.close()
         elif cast_info.ctd_make=='aml':
@@ -378,26 +380,24 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
         else:
             pass
         Pnisk = Psens - btl_info['niskin_height'].values
-        print(ds_cast)
-        """
+        
         # extract niskin pressure range sensor data from ctd downcast
         #ds_cast_nisk = ds_cast.sel(P=[ctdprs - 0.50 * h : ctdprs + 0.50 * h], method='nearest')
-        ds_cast_nisk = ds_cast.sel(P=slice(
-            Pnisk - 0.75*niskin_length,
-            Pnisk + 0.75*niskin_length
+        ds_cast_nisk = ds_cast.where(np.logical_and(
+            ds_cast['P'] >= Pnisk - 0.75*niskin_length,
+            ds_cast['P'] <= Pnisk + 0.75*niskin_length
             ))
-        
         Tnisk = ds_cast_nisk['T'].mean()
         SPnisk = ds_cast_nisk['SP'].mean()
         Tnisk = Tnisk.assign_coords({'cast_number': cast})
         SPnisk = SPnisk.assign_coords({'cast_number': cast})
-
+        
         # append extracted values to list; include proper dimensions
         ctdprs.append(Pnisk)
         ctdtmp.append(Tnisk)
         ctdsal.append(SPnisk)
     
-
+    
     # Create DataArrays from ctdprs, ctdtmp, and ctdsal result lists, assign
     # attributes and merge into the full bottle dataset.
     da_ctdprs = xr.concat(ctdprs, dim='cast_number')
