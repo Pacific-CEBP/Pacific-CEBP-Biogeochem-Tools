@@ -41,6 +41,8 @@ def process_niskin_data(
         eventlog_fname, 
         root_dir, 
         niskin_length,
+        new_btl_file=False,
+        finalize=False,
         extract_ctdsal=False,
         salinity_fname=None, 
         nutrients_fname=None, 
@@ -56,11 +58,14 @@ def process_niskin_data(
     df_event_log = bgc_io.load_event_log(os.path.join(root_dir, eventlog_fname))
 
     # create bottle file
-    btl_fname = bgc_io.create_bottle_file(
-        df_event_log, 
-        expocode,
-        root_dir=root_dir
-    )
+    if new_btl_file:
+        btl_fname = bgc_io.create_bottle_file(
+            df_event_log, 
+            expocode,
+            root_dir=root_dir
+        )
+    else:
+        btl_fname = '{0:s}_hy1.nc'.format(expocode)
 
     # process niskin data
     if extract_ctdsal:
@@ -82,8 +87,11 @@ def process_niskin_data(
     if doc_fname is not None:
         pass
 
-    # cleanup and export to .csv
-    bgc_clean.clean_bottle_file(btl_fname, root_dir=root_dir)
+    # cleanup
+    if finalize:
+        bgc_clean.clean_bottle_file(btl_fname, root_dir=root_dir)
+       
+    # export to .csv    
     bgc_io.write_bottle_exchange(btl_fname, root_dir=root_dir)
     
     return None

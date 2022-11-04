@@ -333,8 +333,7 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
         aml_dir = os.path.join(raw_dir, 'aml', 'csv')
         cast_dir = os.path.join(root_dir, 'ctd', 'cast')
 
-    print('Calculating average niskin in situ properties...', end='',
-        flush=True)
+    print('Calculating average niskin in situ properties...', end='', flush=True)
 
     # Load files
     ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
@@ -352,7 +351,6 @@ def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
     ctdtmp = []
     ctdsal = []
     for cast in ds_btl_ctdsal['cast_number'].values:
-        print(cast)
         btl_info = ds_btl_ctdsal.sel(cast_number=cast)
         cast_info = df_event_log.loc[[cast]]
 
