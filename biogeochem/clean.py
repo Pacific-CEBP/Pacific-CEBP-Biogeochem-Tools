@@ -87,6 +87,30 @@ def clean_cast_files(cast_flist, root_dir=None, cast_dir=None):
     print('done.')
 
     
+def clean_bottle_file(btl_fname, root_dir=None, btl_dir=None):
+    if root_dir is not None:
+        btl_dir = os.path.join(root_dir, 'btl')
+    
+    print('Finalizing bottle file...', end='', flush=True)   
+    
+    # Load bottle file
+    ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
+    
+    # Remove unnecessary variables
+    ds_btl = ds_btl.drop_vars(
+        ['ctd_make', 'ctd_filename', 'niskin_height', 'wire_angle', 
+         'sampler', 'nut_btl', 'nut_dup', 'dic_btl', 'dic_dup',
+         'salt_btl', 'salt_dup', 'del18o_btl', 'del18o_dup', 'doc_btl',
+         'dom_btl', 'chl_btl', 'plank_btl', 'poc_btl', 'domabsflu_btl',
+         'toc_btl'],
+         errors='ignore')
+        
+    # save dataset
+    ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
+    
+    print('done.')
+
+
 def iso19115(cast_flist, root_dir=None, cast_dir=None):
     """Generate ISO19115 compliant files.  If user supplies root_dir,
     the assumption is that all directories follow the standard pattern.

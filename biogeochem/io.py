@@ -14,6 +14,7 @@ from . import ctd as bgc_ctd
 
 # define a few constants
 half_second = np.timedelta64(500, 'ms')
+one_second = np.timedelta64(1000, 'ms')
 
 btl_flag_valid_range = (0,9)
 btl_flag_values = '0,1,2,3,4,5,6,7,8,9'
@@ -86,7 +87,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
     if root_dir is not None:
         raw_dir = os.path.join(root_dir, 'ctd', 'raw')
         rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
-        aml_dir = os.path.join(raw_dir, 'aml')
+        aml_dir = os.path.join(raw_dir, 'aml', 'csv')
         cast_dir = os.path.join(root_dir, 'ctd', 'cast')
     if not(os.path.isdir(cast_dir)):
         os.mkdir(cast_dir)
@@ -124,14 +125,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         ),
                     )
                     
-                    # attach metadata
-                    ds_cast.attrs = {
-                        'expocode': expocode,
-                        'station_id' : cast_info.stn,
-                        'station_name' : cast_info.name,
-                        'cast_number' : np.int(cast_info.Index),
-                    }
-                            
+                    # attach instrument metadata  
                     ds_cast['instrument1'] = 0
                     ds_cast['instrument1'].attrs = {
                         'serial_number': rsk.instrument.serialID,
@@ -141,67 +135,133 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                         'comment': '',
                         'long_name': 'RBR {} CTD'.format(rsk.instrument.model),
                         'ncei_name': 'CTD',
-                        'make_model': rsk.instrument.model,
+                        'make_model': 'RBR {}'.format(rsk.instrument.model),
                     }
-
-                    ds_cast['time'].attrs = {
-                        'long_name': 'cast date/time (utc)',
-                        'standard_name': 'time',
+              
+            elif cast_info.ctd_make == 'aml':
+                
+                aml_fname = os.path.join(aml_dir, cast_info.ctd_filename)
+                
+                # extract info from header
+                """ *** faking it right now, since I only used AML for one cruise *** """
+                aml_instrument_model = 'Plus.X'
+                aml_instrument_serial_no = 50243
+                
+                # load file into csv
+                df_cast = pd.read_csv(
+                    aml_fname,
+                    skiprows=117,
+                    usecols=[0, 1, 2, 3, 4],
+                    names=[
+                        'date',
+                        'time',
+                        'conductivity',
+                        'temperature',
+                        'pressure'
+                    ],
+                    parse_dates={'timestamp': [0,1]}
+                )
+                df_cast = df_cast.set_index('timestamp')
+                
+                # select downcast
+                df_cast = df_cast.loc[cast_info.tstart:cast_info.tend]
+                
+                # create xarray dataset
+                ds_cast = xr.Dataset(
+                    data_vars=dict(
+                        P=(["t"], df_cast['pressure'].values),
+                        C=(["t"], df_cast['conductivity'].values),
+                        T=(["t"], df_cast['temperature'].values),
+                        Psurf=np.NaN,
+                        lon=cast_info.lon,
+                        lat=cast_info.lat,
+                        time=df_cast.index.values[-1]
+                    ),
+                    coords=dict(
+                        timestamp=(["t"], df_cast.index.values),
+                    ),
+                )
+                
+                # attach instrument metadata  
+                ds_cast['instrument1'] = 0
+                ds_cast['instrument1'].attrs = {
+                    'serial_number': aml_instrument_serial_no,
+                    'calibration_date': '',
+                    'accuracy': '',
+                    'precision': '',
+                    'comment': '',
+                    'long_name': 'AML {} CTD'.format(aml_instrument_model),
+                    'ncei_name': 'CTD',
+                    'make_model': 'AML {}'.format(aml_instrument_model),
                     }
-                    ds_cast['lat'].attrs = {
-                        'long_name': 'latitude',
-                        'standard_name': 'latitude',
-                        'positive' : 'north',
-                        'units': 'degree_north',
-                    }
-                    ds_cast['lon'].attrs = {
-                        'long_name': 'longitude',
-                        'standard_name': 'longitude',
-                        'positive' : 'east',
-                        'units': 'degree_east',
-                    }
-                    ds_cast['Psurf'].attrs = {
-                        'long_name': 'surface atmospheric pressure',
-                        'standard_name': 'surface_air_pressure',
-                        'units': 'Pa',
-                    }
-                    ds_cast['P'].attrs = {
-                        'long_name': 'seawater pressure',
-                        'standard_name': 'sea_water_pressure_due_to_seawater',
-                        'positive' : 'down',
-                        'units': 'dbar',
-                        'data_min': np.nanmin(ds_cast['P'].values),
-                        'data_max': np.nanmax(ds_cast['P'].values),
-                        'instrument': 'instrument1',
-                        'WHPO_Variable_Name': 'CTDPRS',
-                    }
-                    ds_cast['T'].attrs = {
-                        'long_name': 'temperature',
-                        'standard_name': 'sea_water_temperature',
-                        'units': 'degree_C',
-                        'reference_scale': 'ITS-90',
-                        'data_min': np.nanmin(ds_cast['T'].values),
-                        'data_max': np.nanmax(ds_cast['T'].values),
-                        'instrument': 'instrument1',
-                        'WHPO_Variable_Name': 'CTDTMP',
-                    }
-                    ds_cast['C'].attrs = {
-                        'long_name': 'conductivity',
-                        'standard_name': 'sea_water_electrical_conductivity',
-                        'units': 'mS/cm',
-                        'data_min': np.nanmin(ds_cast['C'].values),
-                        'data_max': np.nanmax(ds_cast['C'].values),
-                        'instrument': 'instrument1',
-                    }
-                    
-                    # save cast to netCDF    
-                    cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
-                        ds_cast.attrs["expocode"], cast_info.Index)
-                    cast_flist.append(cast_fname)
-                    ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
-                    
+                
             else:
                 pass
+            
+            # attach cast metadata
+            ds_cast.attrs = {
+                'expocode': expocode,
+                'station_id' : cast_info.stn,
+                'station_name' : cast_info.name,
+                'cast_number' : int(cast_info.Index),
+            }
+            ds_cast['time'].attrs = {
+                'long_name': 'cast date/time (utc)',
+                'standard_name': 'time',
+            }
+            ds_cast['lat'].attrs = {
+                'long_name': 'latitude',
+                'standard_name': 'latitude',
+                'positive' : 'north',
+                'units': 'degree_north',
+            }
+            ds_cast['lon'].attrs = {
+                'long_name': 'longitude',
+                'standard_name': 'longitude',
+                'positive' : 'east',
+                'units': 'degree_east',
+            }
+            ds_cast['Psurf'].attrs = {
+                'long_name': 'surface atmospheric pressure',
+                'standard_name': 'surface_air_pressure',
+                'units': 'Pa',
+            }
+            ds_cast['P'].attrs = {
+                'long_name': 'seawater pressure',
+                'standard_name': 'sea_water_pressure_due_to_seawater',
+                'positive' : 'down',
+                'units': 'dbar',
+                'data_min': np.nanmin(ds_cast['P'].values),
+                'data_max': np.nanmax(ds_cast['P'].values),
+                'instrument': 'instrument1',
+                'WHPO_Variable_Name': 'CTDPRS',
+            }
+            ds_cast['T'].attrs = {
+                'long_name': 'temperature',
+                'standard_name': 'sea_water_temperature',
+                'units': 'degree_C',
+                'reference_scale': 'ITS-90',
+                'data_min': np.nanmin(ds_cast['T'].values),
+                'data_max': np.nanmax(ds_cast['T'].values),
+                'instrument': 'instrument1',
+                'WHPO_Variable_Name': 'CTDTMP',
+            }
+            ds_cast['C'].attrs = {
+                'long_name': 'conductivity',
+                'standard_name': 'sea_water_electrical_conductivity',
+                'units': 'mS/cm',
+                'data_min': np.nanmin(ds_cast['C'].values),
+                'data_max': np.nanmax(ds_cast['C'].values),
+                'instrument': 'instrument1',
+            }
+                     
+            # save cast to netCDF    
+            cast_fname = '{0:s}_{1:03d}_ct1.nc'.format(
+                ds_cast.attrs["expocode"], 
+                cast_info.Index
+            )
+            cast_flist.append(cast_fname)
+            ds_cast.to_netcdf(os.path.join(cast_dir, cast_fname))
     
     print('done.')
     return cast_dir, cast_flist
@@ -213,7 +273,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     results from discrete samples.  If user supplies root_dir, the
     assumption is that all directories follow the standard pattern.
     Otherwise, directories are needed for btl_dir."""
-
+    
     if root_dir is not None:
         btl_dir = os.path.join(root_dir, 'btl')
 
@@ -223,7 +283,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     ds_btl['expocode'] = xr.full_like(ds_btl['cast'], expocode, dtype='object')
     ds_btl = ds_btl.drop(['tair', 'tstart', 'tend', 'weather', 'sea', 'notes'])
     ds_btl = ds_btl.where(ds_btl['nisk_f']!=1, drop=True) # drop ctd-only casts
-
+    
     # Rename and recast (change data type)
     ds_btl = ds_btl.rename({'cast': 'cast_number', 'tnisk': 'time',
         'stn': 'station_id', 'name': 'station_name', 'niskin': 'sample_number',
@@ -231,7 +291,7 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
     ds_btl['cast_number'] = ds_btl['cast_number'].astype(np.int16)
     ds_btl['sample_number_flag_w'] = ds_btl['sample_number_flag_w'].astype(np.int8)
     ds_btl['cast_f'] = ds_btl['cast_f'].astype(np.int8)
-
+    
     # Assign attributes
     ds_btl['cast_number'].attrs = {'long_name': 'cast number',
                                    'WHPO_Variable_Name': 'CASTNO'}
@@ -257,6 +317,127 @@ def create_bottle_file(df_event_log, expocode, root_dir=None, btl_dir=None):
 
     return btl_fname
 
+          
+def extract_niskin_salts(df_event_log, btl_fname, niskin_length, root_dir=None,
+    btl_dir=None, raw_dir=None, cast_dir=None, rsk_dir=None, aml_dir=None):
+    """Calculate average in-situ temperature and salinity in Niskin
+    bottle at the time it was closed.  If user supplies root_dir, the
+    assumption is that all directories follow the standard pattern.
+    Otherwise, directories are needed for btl_dir, raw_dir, cast_dir,
+    and plots_dir"""
+
+    if root_dir is not None:
+        btl_dir = os.path.join(root_dir, 'btl')
+        raw_dir = os.path.join(root_dir, 'ctd', 'raw')
+        rsk_dir = os.path.join(raw_dir, 'rbr', 'rsk')
+        aml_dir = os.path.join(raw_dir, 'aml', 'csv')
+        cast_dir = os.path.join(root_dir, 'ctd', 'cast')
+
+    print('Calculating average niskin in situ properties...', end='', flush=True)
+
+    # Load files
+    ds_btl = xr.load_dataset(os.path.join(btl_dir, btl_fname))
+
+    # Filter by quality flag and data availability
+    good_cast = (ds_btl['cast_f']==2)
+    valid_tnisk = np.logical_not(np.isnat(ds_btl['time']))
+    ds_btl_ctdsal = ds_btl.where(
+       np.logical_and(good_cast, valid_tnisk), 
+       drop=True
+       )
+
+    # Cycle through the bottles
+    ctdprs = []
+    ctdtmp = []
+    ctdsal = []
+    for cast in ds_btl_ctdsal['cast_number'].values:
+        btl_info = ds_btl_ctdsal.sel(cast_number=cast)
+        cast_info = df_event_log.loc[[cast]]
+
+        # Load processed ctd cast file
+        cast_fname = '{0}_{1:03d}_ct1.nc'.format(
+            btl_info['expocode'].values, 
+            cast)
+        ds_cast = xr.load_dataset(os.path.join(cast_dir, cast_fname))
+        
+        # Load raw ctd file; determine sensor pressure at niskin closure event
+        if cast_info.ctd_make.values[0]=='rbr':
+            rsk_fname = os.path.join(rsk_dir, cast_info.ctd_filename.values[0])
+            rsk = RSK(rsk_fname)
+            rsk.open()
+            rsk.readdata(
+                btl_info['time'].values - half_second, 
+                btl_info['time'].values + half_second
+                )
+            Praw = rsk.data['pressure'].mean()
+            Psens = Praw - ds_cast['Psurf'].values / 1.e4
+            rsk.close()
+        elif cast_info.ctd_make=='aml':
+            pass
+        else:
+            pass
+            
+        # extract niskin pressure range sensor data from ctd downcast
+        Pnisk = Psens - btl_info['niskin_height'].values
+        ds_cast_nisk = ds_cast.where(np.logical_and(
+            ds_cast['P'] >= Pnisk - 0.75*niskin_length,
+            ds_cast['P'] <= Pnisk + 0.75*niskin_length
+            ))
+        Tnisk = ds_cast_nisk['T'].mean()
+        SPnisk = ds_cast_nisk['SP'].mean()
+
+        # append extracted values to list
+        ctdprs.append(Pnisk)
+        ctdtmp.append(Tnisk)
+        ctdsal.append(SPnisk)
+    
+    # Create DataArrays from ctdprs, ctdtmp, and ctdsal result lists, assign
+    # attributes and merge into the full bottle dataset.
+    da_ctdprs = xr.DataArray(
+        ctdprs,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+    da_ctdtmp = xr.DataArray(
+        ctdtmp,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+    da_ctdsal = xr.DataArray(
+        ctdsal,
+        coords=[ds_btl_ctdsal['cast_number'].values],
+        dims=['cast_number'],
+    )
+
+    da_ctdprs.attrs = {'long_name': 'sensor pressure',
+                       'standard_name' : 'sea_water_pressure_due_to_seawater',
+                       'positive' : 'down',
+                       'units' : 'dbar',
+                       'data_min': np.nanmin(da_ctdprs.values),
+                       'data_max': np.nanmax(da_ctdprs.values),
+                       'WHPO_Variable_Name' : 'CTDPRS'}
+    da_ctdsal.attrs = {'long_name': 'sensor practical salinity',
+                       'standard_name': 'sea_water_practical_salinity',
+                       'units': '',
+                       'data_min': np.nanmin(da_ctdsal.values),
+                       'data_max': np.nanmax(da_ctdsal.values),
+                       'WHPO_Variable_Name': 'CTDSAL'}
+    da_ctdtmp.attrs = {'long_name': 'sensor temperature',
+                       'standard_name': 'sea_water_temperature',
+                       'units': 'C (ITS-90)',
+                       'data_min': np.nanmin(da_ctdtmp.values),
+                       'data_max': np.nanmax(da_ctdtmp.values),
+                       'WHPO_Variable_Name': 'CTDTMP'}
+    ds_btl = xr.merge([ds_btl,
+                       {'ctdprs': da_ctdprs},
+                       {'ctdsal': da_ctdsal},
+                       {'ctdtmp': da_ctdtmp}])
+
+    # Save results
+    ds_btl.to_netcdf(os.path.join(btl_dir, btl_fname))
+    
+    print('done.')
+    
 
 def quality_flags(df, variable, flag_column_name):
     """ (Pandas DataFrame, string, string)
