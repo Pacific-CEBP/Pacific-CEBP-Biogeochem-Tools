@@ -203,7 +203,7 @@ def load_ctd_casts(df_event_log, expocode, root_dir=None, raw_dir=None,
                 'expocode': expocode,
                 'station_id' : cast_info.stn,
                 'station_name' : cast_info.name,
-                'cast_number' : np.int(cast_info.Index),
+                'cast_number' : int(cast_info.Index),
             }
             ds_cast['time'].attrs = {
                 'long_name': 'cast date/time (utc)',
