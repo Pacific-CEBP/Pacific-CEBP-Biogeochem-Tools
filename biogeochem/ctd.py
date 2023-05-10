@@ -10,6 +10,7 @@ import gsw
 
 """RBR specific tools"""
 
+
 def rbr_correct_zero_order_hold(ds, channel):
     """The analog-to-digital (A2D) converter on RBR instruments must
     recalibrate periodically.  In the time it takes for the calibration
@@ -23,15 +24,15 @@ def rbr_correct_zero_order_hold(ds, channel):
 
     ds_out = ds.copy()
 
-    hold_idx = np.where(np.diff(ds[channel])==0.0)[0] + 1
+    hold_idx = np.where(np.diff(ds[channel]) == 0.0)[0] + 1
     ds_out[channel][hold_idx] = np.NaN
     return ds_out
-    
+
 
 """Despiking, filtering, binning type routines"""
 
-def despike(ds, channel, std_limit=3, kernel_size=3):
 
+def despike(ds, channel, std_limit=3, kernel_size=3):
     """Clean spikes in raw sensor data using median filter."""
 
     # calculate smoothed and residual signals
@@ -42,9 +43,9 @@ def despike(ds, channel, std_limit=3, kernel_size=3):
     # obtain indices where residual deviates by more than
     # <std_limit> standard deviations.
     with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=RuntimeWarning)
-        
-        ix = np.where(np.abs(resid/np.nanstd(resid))>std_limit)
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+        ix = np.where(np.abs(resid / np.nanstd(resid)) > std_limit)
 
     # replace spikes with NaN values
     ds[channel][ix] = np.NaN
@@ -57,12 +58,12 @@ def lp_filter(ds, channel, tau):
     ds_out = ds
 
     # Nyquist frequency = 0.5 * sample frequency
-    fs = 8. # Hz
+    fs = 8.0  # Hz
     nyq = 0.5 * 8
-    low = (1. / tau) / nyq
+    low = (1.0 / tau) / nyq
 
     # Create an order 5 lowpass butterworth filter
-    b, a = butter(5, low, btype='lowpass')
+    b, a = butter(5, low, btype="lowpass")
 
     ds_out[channel] = filtfilt(b, a, ds[channel].values)
 
@@ -74,24 +75,17 @@ def bin(ds, bins):
 
     # calculate bin centers
     bin_centers = np.array(
-        [(bins[n] + bins[n+1]) / 2 for n in range(np.size(bins) - 1)]
+        [(bins[n] + bins[n + 1]) / 2 for n in range(np.size(bins) - 1)]
     )
 
     # bin the data
     ds = ds.groupby_bins(
-        'P', 
-        bins, 
-        labels=bin_centers, 
+        "P",
+        bins,
+        labels=bin_centers,
         precision=4,
-        include_lowest=True, 
-        restore_coord_dims=True
-    ).mean(
-        dim=xr.ALL_DIMS, 
-        skipna=True,
-        keep_attrs=True
-    )
+        include_lowest=True,
+        restore_coord_dims=True,
+    ).mean(dim=xr.ALL_DIMS, skipna=True, keep_attrs=True)
 
     return ds
-
-
-
