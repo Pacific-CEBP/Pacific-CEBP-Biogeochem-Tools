@@ -8,7 +8,7 @@ def readme():
         return f.read()
 
 setup(name='biogeochem',
-      version='1.0.0b1',
+      version='2024.06b1',
 
       description='Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data',
       long_description=readme(),
@@ -27,9 +27,13 @@ setup(name='biogeochem',
       packages=['biogeochem'],
       
       install_requires=[
-        'numpy',
-        'pandas',
-        'xarray',
+        'numpy==1.26.4',
+        'pandas==1.5.3',
+        'xarray==2022.11.0',
+        'gsw==3.6.18',
+        'pyrsktools==1.1.1',
+        'pyco2sys==1.8.3.1',
+        'calkulate==23.6.1'
       ],
       
       include_package_data=True,
