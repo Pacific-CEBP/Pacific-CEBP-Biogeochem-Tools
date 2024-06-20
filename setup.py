@@ -7,8 +7,8 @@ def readme():
     with open('README.md') as f:
         return f.read()
 
-setup(name='biogeochem',
-      version='24.6.0-alpha',
+setup(name='biogeochem_tools',
+      version='24.6.0-alpha-1',
 
       description='Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data',
       long_description=readme(),
@@ -16,7 +16,7 @@ setup(name='biogeochem',
       classifiers=[
         'Development Status :: 3 - Beta',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Topic :: Scientific/Engineering :: Oceanography',
         'Topic :: Scientific/Engineering :: Chemistry',
         'Topic :: Scientific/Engineering :: Physics',
@@ -24,16 +24,16 @@ setup(name='biogeochem',
 
       license='MIT',
 
-      packages=['biogeochem'],
+      packages=['biogeochem_tools'],
       
       install_requires=[
-        'numpy==1.26.4',
-        'pandas==1.5.3',
+        'numpy',
+        'pandas',
         'xarray==2022.11.0',
-        'gsw==3.6.18',
-        'pyrsktools==1.1.1',
-        'pyco2sys==1.8.3.1',
-        'calkulate==23.6.1'
+        'gsw',
+        'pyrsktools',
+        'pyco2sys',
+        'calkulate'
       ],
       
       include_package_data=True,
