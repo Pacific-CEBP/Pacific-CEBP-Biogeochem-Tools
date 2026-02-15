@@ -8,7 +8,7 @@ def readme():
         return f.read()
 
 setup(name='biogeochem_tools',
-      version='24.6.0-alpha-1',
+      version='24.11.0-alpha-1',
 
       description='Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data',
       long_description=readme(),

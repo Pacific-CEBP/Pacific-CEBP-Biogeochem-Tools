@@ -1,0 +1,7 @@
+numpy
+pandas
+xarray==2022.11.0
+gsw
+pyrsktools
+pyco2sys
+calkulate

@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: biogeochem_tools
+Version: 24.11.0a1
+Summary: Tools for processing of Coastal Environmental Baseline Program physical and biogeochemical data
+License: MIT
+Classifier: Development Status :: 3 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Oceanography
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Physics
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: xarray==2022.11.0
+Requires-Dist: gsw
+Requires-Dist: pyrsktools
+Requires-Dist: pyco2sys
+Requires-Dist: calkulate
+
+# Pacific CEBP Biogeochemistry Tools
+ Code (mostly Python) to process CTD and Niskin bottle data collected during CEPB biogeochem cruises.
+
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
